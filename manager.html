@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tabula - 标签页管理器</title>
+  <link rel="stylesheet" href="styles/manager.css">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-logo">
+          <div class="logo-icon">
+            <div class="tab-stack">
+              <span class="tab-layer tab-1"></span>
+              <span class="tab-layer tab-2"></span>
+              <span class="tab-layer tab-3"></span>
+            </div>
+          </div>
+          <h1 class="brand-title">
+            <span class="brand-text-main">Tab</span><span class="brand-text-accent">ula</span>
+          </h1>
+        </div>
+      </div>
+      <div class="search-container">
+        <i class="material-icons-outlined search-icon">search</i>
+        <input type="text" id="search-input" data-i18n-placeholder="search.filter_placeholder" placeholder="筛选当前视图...">
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" data-view="current">
+          <span data-i18n="nav.current_session">当前会话</span>
+          <span class="nav-count" id="current-session-count">0</span>
+        </a>
+        <a href="#" class="nav-item" data-view="favorites">
+          <span data-i18n="nav.favorites">收藏列表</span>
+          <span class="nav-count" id="favorites-count">0</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="footer-actions">
+          <button id="theme-toggle-btn" class="footer-btn" data-i18n-attr="title:settings.theme">
+            <i class="material-icons-outlined">light_mode</i>
+          </button>
+          <button id="language-toggle-btn" class="footer-btn" data-i18n-attr="title:settings.language">
+            <i class="material-icons-outlined">translate</i>
+          </button>
+          <button id="sync-status-btn" class="footer-btn" data-i18n-attr="title:settings.sync_status">
+            <i class="material-icons-outlined">cloud_sync</i>
+          </button>
+        </div>
+      </div>
+    </aside>
+    
+    <!-- 当前会话区域 -->
+    <main class="main-content" id="current-session" style="display: block;">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="nav.current_session">当前会话</h2>
+      </div>
+      <div id="window-list">
+        <!-- 动态生成的窗口列表 -->
+      </div>
+    </main>
+    
+    <!-- 收藏区域 -->
+    <main class="main-content" id="favorites-list" style="display: none;">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="nav.favorites">收藏的标签页</h2>
+      </div>
+      <div class="favorite-list" id="favorite-list">
+        <!-- 动态生成的收藏列表 -->
+      </div>
+    </main>
+  </div>
+
+  <!-- 自定义右键菜单 -->
+  <div id="context-menu" class="context-menu">
+    <div class="context-menu-item" data-action="rename">重命名</div>
+    <div class="context-menu-item" data-action="favorite">收藏</div>
+    <div class="context-menu-item" data-action="edit-tags">编辑标签</div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" data-action="close">关闭标签页</div>
+  </div>
+
+  <!-- 通用模态框 -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-title"></h3>
+        <button class="btn-close" id="modal-close-btn">×</button>
+      </div>
+      <div class="modal-body" id="modal-body">
+        <!-- 动态内容 -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="modal-cancel-btn">取消</button>
+        <button class="btn-primary" id="modal-confirm-btn">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 快捷搜索模态框 -->
+  <div id="search-palette-overlay" class="modal-overlay" style="display: none;">
+    <div class="search-palette">
+              <input type="text" id="palette-search-input" data-i18n-placeholder="search.palette_placeholder" placeholder="搜索并跳转到标签页...">
+      <ul id="palette-results-list"></ul>
+    </div>
+  </div>
+
+  <!-- 同步状态模态框 -->
+  <div id="sync-status-modal" class="modal-overlay" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" data-i18n="sync.title">同步状态</h3>
+        <button class="btn-close" id="sync-modal-close-btn">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="sync-status-info">
+          <div class="status-item">
+            <label data-i18n="sync.connection_status">连接状态:</label>
+            <span id="connection-status" class="status-indicator" data-i18n="status.checking">检查中...</span>
+          </div>
+          <!-- <div class="status-item">
+            <label>数据库地址:</label>
+            <span id="database-url">http://172.245.53.139:5984/tabula</span>
+          </div> -->
+          <div class="status-item">
+            <label data-i18n="sync.user_id">用户ID:</label>
+            <div class="user-id-input-group">
+              <input type="text" id="user-id-input" class="user-id-input" data-i18n-placeholder="sync.user_id" readonly>
+              <button id="edit-user-id-btn" class="btn-icon" data-i18n-attr="title:sync.edit_user_id">✏️</button>
+              <button id="generate-user-id-btn" class="btn-icon" data-i18n-attr="title:sync.generate_user_id" style="display: none;">🎲</button>
+              <button id="save-user-id-btn" class="btn-icon" data-i18n-attr="title:sync.save_user_id" style="display: none;">✓</button>
+              <button id="cancel-edit-user-id-btn" class="btn-icon" data-i18n-attr="title:sync.cancel_edit" style="display: none;">✕</button>
+            </div>
+            <div class="user-id-hint" style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: none;" data-i18n="sync.user_id_hint">
+              用户ID用于同步数据，支持字母、数字、下划线和连字符，长度3-32字符
+            </div>
+          </div>
+          <div class="status-item">
+            <label data-i18n="sync.pending_operations">待同步操作:</label>
+            <span id="pending-operations">0</span>
+          </div>
+          <div class="status-item">
+            <label data-i18n="sync.local_favorites">本地收藏数:</label>
+            <span id="local-favorites-count">0</span>
+          </div>
+          <div class="status-item">
+            <label data-i18n="sync.last_sync">最后同步时间:</label>
+            <span id="last-sync-time" data-i18n="sync.never_synced">未同步</span>
+          </div>
+        </div>
+        <div class="sync-actions">
+          <button id="force-sync-btn" class="btn btn-primary" data-i18n="sync.force_sync">强制同步</button>
+          <button id="test-connection-btn" class="btn btn-secondary" data-i18n="sync.test_connection">测试连接</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading 遮罩层 -->
+  <div id="loading-overlay" class="loading-overlay active">
+    <div class="loading-content">
+      <div class="loading-brand">
+        <div class="loading-logo">
+          <div class="logo-icon">
+            <div class="tab-stack">
+              <span class="tab-layer tab-1"></span>
+              <span class="tab-layer tab-2"></span>
+              <span class="tab-layer tab-3"></span>
+            </div>
+          </div>
+          <h2 class="loading-title">
+            <span class="brand-text-main">Tab</span><span class="brand-text-accent">ula</span>
+          </h2>
+        </div>
+      </div>
+      <div class="loading-spinner"></div>
+      <div class="loading-text" id="loading-text">正在启动...</div>
+    </div>
+  </div>
+
+      <script src="js/i18n.js"></script>
+    <script src="js/couchdb.js"></script>
+    <script src="js/manager.js"></script>
+</body>
+</html>

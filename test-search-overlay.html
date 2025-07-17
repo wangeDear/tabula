@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜索覆盖层功能测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            background: #f5f5f5;
+        }
+        
+        .test-container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 8px;
+            margin-top: 30px;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .feature-list li {
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+        }
+        
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .feature-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 12px;
+            background: #007bff;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .shortcut-key {
+            background: #f0f0f0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            margin: 0 4px;
+        }
+        
+        .demo-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .demo-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: background 0.2s;
+        }
+        
+        .demo-button:hover {
+            background: #0056b3;
+        }
+        
+        .animation-demo {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .animation-demo h3 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+        }
+        
+        .animation-demo p {
+            margin: 0;
+            opacity: 0.9;
+        }
+        
+        .note {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 16px 0;
+            color: #856404;
+        }
+        
+        .note strong {
+            color: #533f03;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-indicator.online {
+            background: #28a745;
+        }
+        
+        .status-indicator.offline {
+            background: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔍 Tabula 搜索覆盖层功能测试</h1>
+        
+                 <div class="animation-demo">
+             <h3>✨ 全新酷炫动画效果</h3>
+             <p>体验流畅的动画效果，包括渐入、缩放、发光等视觉特效，搜索框高度提升至80%</p>
+         </div>
+        
+        <h2>🚀 新增功能</h2>
+        <ul class="feature-list">
+            <li>
+                <div class="feature-icon">1</div>
+                <div>
+                    <strong>酷炫动画效果</strong>
+                    <br>搜索框渐入动画、结果项滑入效果、选中项发光动画
+                </div>
+            </li>
+            <li>
+                <div class="feature-icon">2</div>
+                <div>
+                    <strong>标签页重命名</strong>
+                    <br>支持为标签页设置自定义名称，方便识别和管理
+                </div>
+            </li>
+            <li>
+                <div class="feature-icon">3</div>
+                <div>
+                    <strong>快速收藏功能</strong>
+                    <br>可以直接在搜索界面添加收藏，并自定义收藏标题
+                </div>
+            </li>
+            <li>
+                <div class="feature-icon">4</div>
+                <div>
+                    <strong>右键菜单</strong>
+                    <br>提供丰富的右键菜单选项，包括重命名、收藏、关闭等
+                </div>
+            </li>
+            <li>
+                <div class="feature-icon">5</div>
+                <div>
+                    <strong>悬停操作按钮</strong>
+                    <br>鼠标悬停时显示快速操作按钮，提升操作效率
+                </div>
+            </li>
+            <li>
+                <div class="feature-icon">6</div>
+                <div>
+                    <strong>模态框编辑</strong>
+                    <br>美观的模态框界面，支持标题编辑和收藏管理
+                </div>
+            </li>
+        </ul>
+        
+        <h2>⌨️ 快捷键操作</h2>
+        <div class="demo-section">
+            <p><strong>基本操作：</strong></p>
+            <ul>
+                <li><span class="shortcut-key">Alt + M</span> 显示搜索覆盖层</li>
+                <li><span class="shortcut-key">↑</span> <span class="shortcut-key">↓</span> 上下导航</li>
+                <li><span class="shortcut-key">Enter</span> 打开选中项</li>
+                <li><span class="shortcut-key">Esc</span> 关闭搜索界面</li>
+                <li><span class="shortcut-key">右键</span> 显示上下文菜单</li>
+            </ul>
+        </div>
+        
+        <h2>🎨 动画效果展示</h2>
+        <div class="demo-section">
+            <p><strong>包含以下动画效果：</strong></p>
+            <ul>
+                                 <li><strong>渐入动画：</strong>搜索覆盖层平滑显示</li>
+                 <li><strong>缩放动画：</strong>搜索容器弹性缩放效果</li>
+                 <li><strong>滑入动画：</strong>搜索结果依次滑入显示</li>
+                 <li><strong>发光动画：</strong>输入框聚焦时的脉冲发光效果</li>
+                 <li><strong>选中动画：</strong>选中项渐变背景和位移效果</li>
+                 <li><strong>按钮动画：</strong>操作按钮的悬停缩放效果</li>
+                 <li><strong>选择动画：</strong>优化的上下选择动画效果</li>
+                 <li><strong>左边框指示：</strong>选中项的左边框高亮指示</li>
+                 <li><strong>光泽效果：</strong>选中时的光泽扫过动画</li>
+                 <li><strong>10条结果：</strong>限制显示10条结果，提升性能</li>
+            </ul>
+        </div>
+        
+        <h2>🛠️ 功能测试</h2>
+        <div class="demo-section">
+            <p><strong>测试步骤：</strong></p>
+            <ol>
+                <li>按 <span class="shortcut-key">Alt + M</span> 打开搜索界面</li>
+                <li>输入关键词搜索标签页或收藏夹</li>
+                <li>使用方向键导航，观察选中动画效果</li>
+                <li>右键点击任意结果项，查看上下文菜单</li>
+                <li>尝试重命名标签页或编辑收藏标题</li>
+                <li>测试添加/移除收藏功能</li>
+            </ol>
+            
+            <button class="demo-button" onclick="testSearchOverlay()">
+                🔍 打开搜索覆盖层
+            </button>
+            
+            <button class="demo-button" onclick="showInfo()">
+                ℹ️ 查看功能说明
+            </button>
+        </div>
+        
+        <div class="note">
+            <strong>注意：</strong> 确保已安装 Tabula 扩展并激活。如果搜索覆盖层无法显示，请检查扩展是否正常加载。
+        </div>
+        
+        <h2>📋 功能清单</h2>
+        <div class="demo-section">
+            <h3>标签页操作</h3>
+            <ul>
+                <li><span class="status-indicator online"></span>重命名标签页标题</li>
+                <li><span class="status-indicator online"></span>添加到收藏夹</li>
+                <li><span class="status-indicator online"></span>取消收藏</li>
+                <li><span class="status-indicator online"></span>关闭标签页</li>
+                <li><span class="status-indicator online"></span>新标签页打开</li>
+            </ul>
+            
+            <h3>收藏夹操作</h3>
+            <ul>
+                <li><span class="status-indicator online"></span>编辑收藏标题</li>
+                <li><span class="status-indicator online"></span>移除收藏</li>
+                <li><span class="status-indicator online"></span>新标签页打开</li>
+                <li><span class="status-indicator online"></span>智能跳转（检查已打开标签页）</li>
+            </ul>
+            
+            <h3>界面效果</h3>
+            <ul>
+                             <li><span class="status-indicator online"></span>流畅的动画过渡</li>
+             <li><span class="status-indicator online"></span>响应式设计</li>
+             <li><span class="status-indicator online"></span>主题适配</li>
+             <li><span class="status-indicator online"></span>键盘导航</li>
+             <li><span class="status-indicator online"></span>右键菜单</li>
+             <li><span class="status-indicator online"></span>80%页面高度</li>
+             <li><span class="status-indicator online"></span>优化的选择动画</li>
+             <li><span class="status-indicator online"></span>左边框指示器</li>
+             <li><span class="status-indicator online"></span>10条结果限制</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        function testSearchOverlay() {
+            // 模拟 Alt+M 快捷键
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage({ action: 'show-search-overlay' }, (response) => {
+                    if (response && response.success) {
+                        console.log('搜索覆盖层已打开');
+                    } else {
+                        console.log('无法打开搜索覆盖层，请检查扩展是否正常加载');
+                    }
+                });
+            } else {
+                alert('请在安装了 Tabula 扩展的浏览器中测试此功能');
+            }
+        }
+        
+        function showInfo() {
+            alert(`Tabula 搜索覆盖层功能测试
+
+新增功能：
+✨ 酷炫动画效果
+🏷️ 标签页重命名
+⭐ 快速收藏功能
+📋 右键菜单
+🎯 悬停操作按钮
+📝 模态框编辑
+
+使用方法：
+1. 按 Alt+M 打开搜索界面
+2. 输入关键词搜索
+3. 使用方向键导航
+4. 右键查看更多选项
+5. 点击操作按钮快速操作
+
+享受全新的搜索体验！`);
+        }
+        
+        // 监听键盘事件
+        document.addEventListener('keydown', (e) => {
+            if (e.altKey && e.key === 'm') {
+                e.preventDefault();
+                testSearchOverlay();
+            }
+        });
+        
+        // 页面加载完成后的提示
+        window.addEventListener('load', () => {
+            console.log('Tabula 搜索覆盖层功能测试页面已加载');
+            console.log('按 Alt+M 打开搜索界面开始测试');
+        });
+    </script>
+</body>
+</html> 

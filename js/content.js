@@ -205,12 +205,9 @@ class TabulaSearchOverlay {
   }
 
   applyTheme() {
-    // 添加或移除light-mode类
-    if (this.isLightMode) {
-      document.documentElement.classList.add('light-mode');
-    } else {
-      document.documentElement.classList.remove('light-mode');
-    }
+    // 移除对全局文档的主题类操作，避免影响页面样式
+    // 主题应该只应用到插件自己的元素上
+    // 不再操作 document.documentElement
   }
 
   async loadCss() {
@@ -221,148 +218,701 @@ class TabulaSearchOverlay {
       const response = await fetch(chrome.runtime.getURL('styles/manager.css'));
       let cssText = await response.text();
       
-      // 增加CSS选择器权重，确保样式不被页面覆盖
-      cssText = cssText.replace(/\.tabula-search-overlay\s*{/g, '#tabula-search-overlay.tabula-search-overlay {');
-      cssText = cssText.replace(/\.tabula-search-container\s*{/g, '.tabula-search-overlay .tabula-search-container {');
-      cssText = cssText.replace(/\.tabula-search-input\s*{/g, '.tabula-search-overlay .tabula-search-input {');
-      cssText = cssText.replace(/\.tabula-results-list\s*{/g, '.tabula-search-overlay .tabula-results-list {');
-      cssText = cssText.replace(/\.tabula-result-item\s*{/g, '.tabula-search-overlay .tabula-result-item {');
-      cssText = cssText.replace(/\.tabula-hint-bar\s*{/g, '.tabula-search-overlay .tabula-hint-bar {');
-      
-      // 移除选择动画
-      cssText = cssText.replace(/animation: selectedPulse[^;]*;/g, '/* animation removed */');
-      cssText = cssText.replace(/\.tabula-result-item\.selected\s*{[^}]*animation:[^}]*}/g, 
-        '.tabula-search-overlay .tabula-result-item.selected { /* no animation */ }');
-      
-             // 添加!important规则确保关键样式生效
-       cssText += `
-         /* 动画关键帧 */
-         @keyframes fadeIn {
-           from { opacity: 0; }
-           to { opacity: 1; }
-         }
-         
-         @keyframes fadeOut {
-           from { opacity: 1; }
-           to { opacity: 0; }
-         }
-         
-         @keyframes slideInScale {
-           from {
-             opacity: 0;
-             transform: translateY(-40px) scale(0.9);
-           }
-           to {
-             opacity: 1;
-             transform: translateY(0) scale(1);
-           }
-         }
-         
-         @keyframes slideInItem {
-           from {
-             opacity: 0;
-             transform: translateX(-20px);
-           }
-           to {
-             opacity: 1;
-             transform: translateX(0);
-           }
-         }
-         
-         /* 强制样式覆盖 */
-         #tabula-search-overlay.tabula-search-overlay {
-           position: fixed !important;
-           top: 0 !important;
-           left: 0 !important;
-           width: 100vw !important;
-           height: 100vh !important;
-           z-index: 2147483647 !important; /* 最大z-index值 */
-           background: rgba(0, 0, 0, 0.7) !important;
-           backdrop-filter: blur(8px) !important;
-           display: flex !important;
-           align-items: flex-start !important;
-           justify-content: center !important;
-           padding-top: 15vh !important;
-           animation: fadeIn 0.3s ease-out !important;
-           box-sizing: border-box !important;
-         }
-         
-         .tabula-search-overlay .tabula-search-container {
-           background: #2D3748 !important;
-           border-radius: 16px !important;
-           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 8px 32px rgba(0, 0, 0, 0.6) !important;
-           width: 90% !important;
-           max-width: 600px !important;
-           height: 80vh !important;
-           max-height: 80vh !important;
-           overflow: hidden !important;
-           position: relative !important;
-           animation: slideInScale 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-           border: 1px solid #4A5568 !important;
-           display: flex !important;
-           flex-direction: column !important;
-           box-sizing: border-box !important;
-         }
-         
-         /* 移除水平滚动条 */
-         .tabula-search-overlay .tabula-results-list {
-           overflow-x: hidden !important;
-           overflow-y: auto !important;
-         }
-         
-         .tabula-search-overlay .tabula-results-list::-webkit-scrollbar-horizontal {
-           display: none !important;
-         }
-         
-         /* 强制隐藏所有元素的水平滚动条 */
-         .tabula-search-overlay .tabula-result-item {
-           animation: none !important;
-           overflow-x: hidden !important;
-           white-space: nowrap !important;
-         }
-         
-         .tabula-search-overlay .item-details {
-           overflow-x: hidden !important;
-         }
-         
-         .tabula-search-overlay .item-title,
-         .tabula-search-overlay .item-url {
-           overflow: hidden !important;
-           text-overflow: ellipsis !important;
-           white-space: nowrap !important;
-         }
-         
-         /* 右键菜单z-index修复 */
-         .tabula-context-menu {
-           z-index: 2147483648 !important;
-           position: fixed !important;
-         }
-         
-         /* 模态框z-index修复 */
-         .modal-overlay {
-           z-index: 2147483649 !important;
-           position: fixed !important;
-           top: 0 !important;
-           left: 0 !important;
-           width: 100vw !important;
-           height: 100vh !important;
-         }
-         
-         .modal-overlay .modal {
-           position: absolute !important;
-           top: 50% !important;
-           left: 50% !important;
-           transform: translate(-50%, -50%) !important;
-           max-width: 360px !important;
-           max-height: 280px !important;
-           width: 90% !important;
-         }
-       `;
+      // 完全重写CSS作用域，确保只影响插件元素
+      // 移除所有全局样式，只保留插件相关的样式
+      const pluginOnlyCSS = `
+        /* 插件专用样式 - 完全隔离作用域 */
+        
+        /* 动画关键帧 */
+        @keyframes tabula-fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        @keyframes tabula-fadeOut {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+        
+        @keyframes tabula-slideInScale {
+          from {
+            opacity: 0;
+            transform: translateY(-40px) scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        
+        @keyframes tabula-slideInItem {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        
+        @keyframes tabula-contextMenuSlide {
+          from {
+            opacity: 0;
+            transform: translateY(-10px) scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        
+        @keyframes tabula-shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        
+        /* 搜索遮罩层 - 最高优先级 */
+        #tabula-search-overlay {
+          /* 重置所有样式 */
+          all: initial !important;
+          
+          /* 基础定位和尺寸 */
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          z-index: 2147483647 !important;
+          
+          /* 背景和效果 */
+          background: rgba(0, 0, 0, 0.7) !important;
+          backdrop-filter: blur(8px) !important;
+          
+          /* 布局 */
+          display: flex !important;
+          align-items: flex-start !important;
+          justify-content: center !important;
+          padding-top: 15vh !important;
+          
+          /* 动画 */
+          animation: tabula-fadeIn 0.3s ease-out !important;
+          
+          /* 盒模型 */
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          
+          /* 字体 */
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          font-size: 14px !important;
+          line-height: 1.5 !important;
+          color: #E2E8F0 !important;
+        }
+        
+        /* 搜索容器 */
+        #tabula-search-overlay .tabula-search-container {
+          all: initial !important;
+          
+          /* 基础样式 */
+          background: #2D3748 !important;
+          border: 1px solid #4A5568 !important;
+          border-radius: 16px !important;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 8px 32px rgba(0, 0, 0, 0.6) !important;
+          
+          /* 尺寸 */
+          width: 90% !important;
+          max-width: 600px !important;
+          height: 80vh !important;
+          max-height: 80vh !important;
+          
+          /* 布局 */
+          display: flex !important;
+          flex-direction: column !important;
+          overflow: hidden !important;
+          position: relative !important;
+          
+          /* 动画 */
+          animation: tabula-slideInScale 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+          
+          /* 盒模型 */
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          
+          /* 字体继承 */
+          font-family: inherit !important;
+          color: inherit !important;
+        }
+        
+        /* 搜索输入框 */
+        #tabula-search-overlay .tabula-search-input {
+          all: initial !important;
+          
+          /* 基础样式 */
+          width: 100% !important;
+          padding: 20px 24px !important;
+          font-size: 18px !important;
+          border: none !important;
+          outline: none !important;
+          background: transparent !important;
+          color: #E2E8F0 !important;
+          border-bottom: 2px solid #4A5568 !important;
+          
+          /* 过渡效果 */
+          transition: all 0.3s ease !important;
+          
+          /* 字体 */
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          
+          /* 盒模型 */
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          
+          /* 输入框特有属性 */
+          border-radius: 0 !important;
+          box-shadow: none !important;
+          text-indent: 0 !important;
+          text-align: left !important;
+          vertical-align: baseline !important;
+        }
+        
+        #tabula-search-overlay .tabula-search-input::placeholder {
+          color: #A0AEC0 !important;
+          opacity: 1 !important;
+        }
+        
+        #tabula-search-overlay .tabula-search-input:focus {
+          border-bottom-color: #2B6CB0 !important;
+          box-shadow: 0 0 0 3px rgba(43, 108, 176, 0.3) !important;
+        }
+        
+        /* 结果列表 */
+        #tabula-search-overlay .tabula-results-list {
+          all: initial !important;
+          
+          /* 布局 */
+          flex: 1 !important;
+          overflow-x: hidden !important;
+          overflow-y: auto !important;
+          
+          /* 背景 */
+          background: #2D3748 !important;
+          
+          /* 字体 */
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          color: #E2E8F0 !important;
+          
+          /* 盒模型 */
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        
+        /* 滚动条样式 */
+        #tabula-search-overlay .tabula-results-list::-webkit-scrollbar {
+          width: 8px !important;
+        }
+        
+        #tabula-search-overlay .tabula-results-list::-webkit-scrollbar-track {
+          background: #1A202C !important;
+          border-radius: 10px !important;
+        }
+        
+        #tabula-search-overlay .tabula-results-list::-webkit-scrollbar-thumb {
+          background: #4A5568 !important;
+          border-radius: 10px !important;
+        }
+        
+        #tabula-search-overlay .tabula-results-list::-webkit-scrollbar-thumb:hover {
+          background: #A0AEC0 !important;
+        }
+        
+        /* 结果项 */
+        #tabula-search-overlay .tabula-result-item {
+          all: initial !important;
+          
+          /* 布局 */
+          position: relative !important;
+          padding: 12px 16px !important;
+          margin: 2px 8px !important;
+          border-radius: 8px !important;
+          cursor: pointer !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 12px !important;
+          
+          /* 样式 */
+          color: #E2E8F0 !important;
+          overflow: hidden !important;
+          border: 2px solid transparent !important;
+          background: transparent !important;
+          
+          /* 过渡 */
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          
+          /* 字体 */
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          
+          /* 盒模型 */
+          box-sizing: border-box !important;
+        }
+        
+        #tabula-search-overlay .tabula-result-item:hover:not(.selected) {
+          background: #1A202C !important;
+          transform: translateX(3px) scale(1.01) !important;
+          border-color: #4A5568 !important;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06) !important;
+        }
+        
+        #tabula-search-overlay .tabula-result-item.selected {
+          background: linear-gradient(135deg, rgba(43, 108, 176, 0.1), rgba(43, 108, 176, 0.15)) !important;
+          border-color: #2B6CB0 !important;
+          transform: translateX(6px) scale(1.02) !important;
+          box-shadow: 0 8px 25px rgba(43, 108, 176, 0.25), 0 3px 10px rgba(43, 108, 176, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+        }
+        
+        #tabula-search-overlay .tabula-result-item.selected::before {
+          content: '' !important;
+          position: absolute !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 4px !important;
+          height: 100% !important;
+          background: linear-gradient(135deg, #2B6CB0, #3182CE) !important;
+          border-radius: 0 4px 4px 0 !important;
+        }
+        
+        /* 图标 */
+        #tabula-search-overlay .item-favicon {
+          all: initial !important;
+          
+          width: 20px !important;
+          height: 20px !important;
+          flex-shrink: 0 !important;
+          border-radius: 4px !important;
+          background: #1A202C !important;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          
+          /* 图片属性 */
+          object-fit: cover !important;
+          vertical-align: middle !important;
+        }
+        
+        #tabula-search-overlay .item-favicon[loading="true"] {
+          background: linear-gradient(90deg, #4A5568 25%, transparent 50%, #4A5568 75%) !important;
+          background-size: 200% 100% !important;
+          animation: tabula-shimmer 2s infinite !important;
+        }
+        
+        /* 详情容器 */
+        #tabula-search-overlay .item-details {
+          all: initial !important;
+          
+          flex: 1 !important;
+          overflow: hidden !important;
+          margin-right: 50px !important;
+          display: flex !important;
+          flex-direction: column !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        }
+        
+        /* 标题 */
+        #tabula-search-overlay .item-title {
+          all: initial !important;
+          
+          font-size: 14px !important;
+          font-weight: 500 !important;
+          color: #E2E8F0 !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          margin-bottom: 4px !important;
+          line-height: 1.3 !important;
+          display: block !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
+        #tabula-search-overlay .tabula-result-item.selected .item-title {
+          color: #2B6CB0 !important;
+          font-weight: 600 !important;
+        }
+        
+        /* URL */
+        #tabula-search-overlay .item-url {
+          all: initial !important;
+          
+          font-size: 12px !important;
+          color: #A0AEC0 !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          line-height: 1.2 !important;
+          display: block !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
+        #tabula-search-overlay .tabula-result-item.selected .item-url {
+          color: #A0AEC0 !important;
+          opacity: 0.9 !important;
+        }
+        
+        /* 收藏时间 */
+        #tabula-search-overlay .favorite-date {
+          all: initial !important;
+          
+          font-size: 11px !important;
+          color: #A0AEC0 !important;
+          margin-top: 2px !important;
+          line-height: 1.2 !important;
+          opacity: 0.8 !important;
+          display: block !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
+        /* 类型指示器 */
+        #tabula-search-overlay .type-indicator {
+          all: initial !important;
+          
+          position: absolute !important;
+          top: 8px !important;
+          right: 8px !important;
+          padding: 3px 8px !important;
+          border-radius: 12px !important;
+          font-size: 10px !important;
+          font-weight: 500 !important;
+          text-transform: uppercase !important;
+          backdrop-filter: blur(8px) !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
+        #tabula-search-overlay .type-indicator.tab-type-dark {
+          background: rgba(43, 108, 176, 0.8) !important;
+          color: white !important;
+        }
+        
+        #tabula-search-overlay .type-indicator.favorite-type-dark {
+          background: rgba(214, 158, 46, 0.8) !important;
+          color: white !important;
+        }
+        
+        #tabula-search-overlay .tabula-result-item.selected .type-indicator {
+          background: #2B6CB0 !important;
+          color: white !important;
+          font-weight: 600 !important;
+          box-shadow: 0 2px 8px rgba(43, 108, 176, 0.4) !important;
+          transform: scale(1.05) !important;
+        }
+        
+        /* 底部提示栏 */
+        #tabula-search-overlay .tabula-hint-bar {
+          all: initial !important;
+          
+          display: flex !important;
+          justify-content: space-between !important;
+          align-items: center !important;
+          padding: 12px 24px !important;
+          background: #1A202C !important;
+          border-top: 1px solid #4A5568 !important;
+          font-size: 12px !important;
+          color: #A0AEC0 !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          box-sizing: border-box !important;
+        }
+        
+        #tabula-search-overlay .tabula-hint-bar kbd {
+          all: initial !important;
+          
+          padding: 2px 6px !important;
+          background: #4A5568 !important;
+          border-radius: 4px !important;
+          margin: 0 2px !important;
+          font-size: 11px !important;
+          color: #E2E8F0 !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        }
+        
+        #tabula-search-overlay .tabula-hint-bar-right {
+          all: initial !important;
+          
+          font-size: 11px !important;
+          color: #A0AEC0 !important;
+          opacity: 0.7 !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 4px !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        }
+        
+        /* 空状态 */
+        #tabula-search-overlay .empty-state {
+          all: initial !important;
+          
+          text-align: center !important;
+          color: #A0AEC0 !important;
+          padding: 40px 20px !important;
+          font-size: 16px !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        }
+        
+        /* 右键菜单 */
+        .tabula-context-menu {
+          all: initial !important;
+          
+          position: fixed !important;
+          background: #2D3748 !important;
+          border: 1px solid #4A5568 !important;
+          border-radius: 8px !important;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
+          z-index: 2147483648 !important;
+          min-width: 180px !important;
+          padding: 8px 0 !important;
+          animation: tabula-contextMenuSlide 0.2s ease-out !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          font-size: 14px !important;
+          color: #E2E8F0 !important;
+          
+          box-sizing: border-box !important;
+        }
+        
+        .tabula-context-menu-item {
+          all: initial !important;
+          
+          padding: 10px 16px !important;
+          cursor: pointer !important;
+          color: #E2E8F0 !important;
+          font-size: 14px !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 10px !important;
+          transition: all 0.2s ease !important;
+          background: transparent !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          box-sizing: border-box !important;
+        }
+        
+        .tabula-context-menu-item:hover {
+          background: #1A202C !important;
+          color: #2B6CB0 !important;
+        }
+        
+        .tabula-context-menu-separator {
+          all: initial !important;
+          
+          height: 1px !important;
+          background: #4A5568 !important;
+          margin: 4px 0 !important;
+        }
+        
+        /* 模态框 */
+        .modal-overlay {
+          all: initial !important;
+          
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          background: rgba(0, 0, 0, 0.8) !important;
+          z-index: 2147483649 !important;
+          backdrop-filter: blur(4px) !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          box-sizing: border-box !important;
+        }
+        
+        .modal-overlay .modal {
+          all: initial !important;
+          
+          background: #2D3748 !important;
+          border-radius: 12px !important;
+          padding: 0 !important;
+          width: 90% !important;
+          max-width: 360px !important;
+          max-height: 280px !important;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+          animation: tabula-slideInScale 0.3s ease-out !important;
+          overflow: hidden !important;
+          border: 1px solid #4A5568 !important;
+          position: absolute !important;
+          top: 50% !important;
+          left: 50% !important;
+          transform: translate(-50%, -50%) !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          box-sizing: border-box !important;
+        }
+        
+        .modal-overlay .modal-header {
+          all: initial !important;
+          
+          padding: 16px 20px !important;
+          border-bottom: 1px solid #4A5568 !important;
+          display: flex !important;
+          justify-content: space-between !important;
+          align-items: center !important;
+          background: #2D3748 !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          box-sizing: border-box !important;
+        }
+        
+        .modal-overlay .modal-title {
+          all: initial !important;
+          
+          margin: 0 !important;
+          font-size: 16px !important;
+          font-weight: 600 !important;
+          color: #E2E8F0 !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        }
+        
+        .modal-overlay .btn-close {
+          all: initial !important;
+          
+          background: none !important;
+          border: none !important;
+          font-size: 24px !important;
+          cursor: pointer !important;
+          color: #A0AEC0 !important;
+          padding: 0 !important;
+          width: 24px !important;
+          height: 24px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        }
+        
+        .modal-overlay .modal-body {
+          all: initial !important;
+          
+          padding: 20px !important;
+          background: #2D3748 !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          box-sizing: border-box !important;
+        }
+        
+        .modal-overlay .form-group {
+          all: initial !important;
+          
+          display: block !important;
+          margin-bottom: 16px !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        }
+        
+        .modal-overlay .form-label {
+          all: initial !important;
+          
+          display: block !important;
+          margin-bottom: 6px !important;
+          font-size: 13px !important;
+          color: #E2E8F0 !important;
+          font-weight: 500 !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        }
+        
+        .modal-overlay .form-input {
+          all: initial !important;
+          
+          width: 100% !important;
+          padding: 10px 12px !important;
+          border: 2px solid #4A5568 !important;
+          border-radius: 6px !important;
+          font-size: 14px !important;
+          background: #1A202C !important;
+          color: #E2E8F0 !important;
+          outline: none !important;
+          transition: border-color 0.2s ease !important;
+          box-sizing: border-box !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          
+          /* 确保input框完整显示 */
+          display: block !important;
+          position: relative !important;
+          border-style: solid !important;
+          border-width: 2px !important;
+          min-height: 20px !important;
+          line-height: 1.4 !important;
+          vertical-align: baseline !important;
+          text-align: left !important;
+          direction: ltr !important;
+          unicode-bidi: normal !important;
+          background-clip: padding-box !important;
+        }
+        
+        .modal-overlay .form-input:focus {
+          border-color: #2B6CB0 !important;
+        }
+        
+        .modal-overlay .modal-footer {
+          all: initial !important;
+          
+          padding: 14px 20px !important;
+          background: #2D3748 !important;
+          display: flex !important;
+          gap: 10px !important;
+          justify-content: flex-end !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          box-sizing: border-box !important;
+        }
+        
+        .modal-overlay .btn {
+          all: initial !important;
+          
+          padding: 8px 16px !important;
+          border-radius: 6px !important;
+          cursor: pointer !important;
+          font-size: 14px !important;
+          transition: all 0.2s ease !important;
+          border: none !important;
+          
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          box-sizing: border-box !important;
+        }
+        
+        .modal-overlay .btn-secondary {
+          border: 1px solid #4A5568 !important;
+          background: #2D3748 !important;
+          color: #E2E8F0 !important;
+        }
+        
+        .modal-overlay .btn-primary {
+          background: #2B6CB0 !important;
+          color: white !important;
+        }
+      `;
       
       // 创建style元素并注入CSS
       const style = document.createElement('style');
       style.id = 'tabula-content-styles';
-      style.textContent = cssText;
+      style.textContent = pluginOnlyCSS;
       document.head.appendChild(style);
       
       console.log('[CONTENT] CSS loaded successfully');
@@ -1001,12 +1551,24 @@ class TabulaSearchOverlay {
                outline: none !important;
                transition: border-color 0.2s ease !important;
                box-sizing: border-box !important;
+               display: block !important;
+               position: relative !important;
+               border-style: solid !important;
+               border-width: 2px !important;
+               min-height: 20px !important;
+               line-height: 1.4 !important;
+               vertical-align: baseline !important;
+               text-align: left !important;
+               direction: ltr !important;
+               unicode-bidi: normal !important;
+               background-clip: padding-box !important;
+               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
              ">
           </div>
         </div>
                  <div class="modal-footer" style="
            padding: 14px 20px !important;
-           background: #1A202C !important;
+           background: #2D3748 !important;
            display: flex !important;
            gap: 10px !important;
            justify-content: flex-end !important;

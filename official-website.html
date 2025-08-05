@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabula - 简洁高效的标签页管理器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8fafc;
+        }
+
+        /* 头部样式 */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 80px 0;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header .subtitle {
+            font-size: 1.5rem;
+            opacity: 0.9;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            background: white;
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .logo img {
+            width: 80px;
+            height: 80px;
+        }
+
+        .logo::before {
+            content: "📑";
+            font-size: 60px;
+        }
+
+        /* 导航样式 */
+        .nav {
+            background: white;
+            padding: 15px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav ul {
+            list-style: none;
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+        }
+
+        .nav a {
+            text-decoration: none;
+            color: #555;
+            font-weight: 500;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .nav a:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        /* 容器样式 */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* 功能特色部分 */
+        .features {
+            padding: 80px 0;
+            background: white;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 60px;
+            color: #2d3748;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin-top: 40px;
+        }
+
+        .feature-card {
+            background: #f7fafc;
+            padding: 40px 30px;
+            border-radius: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border-color: #667eea;
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #2d3748;
+        }
+
+        .feature-card p {
+            color: #718096;
+            line-height: 1.7;
+        }
+
+        /* 核心功能展示 */
+        .showcase {
+            padding: 80px 0;
+            background: linear-gradient(45deg, #f7fafc 0%, #edf2f7 100%);
+        }
+
+        .showcase-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 60px;
+            margin-top: 40px;
+        }
+
+        .showcase-item {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .showcase-item h3 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .showcase-item .icon {
+            font-size: 1.5em;
+            color: #667eea;
+        }
+
+        .showcase-item ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .showcase-item li {
+            padding: 8px 0;
+            color: #4a5568;
+            position: relative;
+            padding-left: 25px;
+        }
+
+        .showcase-item li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #48bb78;
+            font-weight: bold;
+        }
+
+        /* 技术特点 */
+        .tech-specs {
+            padding: 80px 0;
+            background: white;
+        }
+
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .tech-item {
+            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .tech-item .icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .tech-item h4 {
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+            color: #2d3748;
+        }
+
+        .tech-item p {
+            color: #718096;
+            font-size: 0.95rem;
+        }
+
+        /* 安装指南 */
+        .installation {
+            padding: 80px 0;
+            background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+            color: white;
+        }
+
+        .installation .section-title {
+            color: white;
+        }
+
+        .install-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .step {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .step h4 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+        }
+
+        .step p {
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        /* 快捷键 */
+        .shortcuts {
+            padding: 80px 0;
+            background: white;
+        }
+
+        .shortcuts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .shortcut-item {
+            background: #f7fafc;
+            padding: 25px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .shortcut-key {
+            background: #2d3748;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .shortcut-desc {
+            color: #4a5568;
+        }
+
+        /* 底部 */
+        .footer {
+            background: #2d3748;
+            color: white;
+            padding: 60px 0 30px;
+            text-align: center;
+        }
+
+        .footer-content {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .footer h3 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+        }
+
+        .footer p {
+            opacity: 0.8;
+            margin-bottom: 30px;
+            line-height: 1.7;
+        }
+
+        .download-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        .chrome-store-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 255, 255, 0.4) !important;
+        }
+
+        .footer-bottom {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #4a5568;
+            opacity: 0.6;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2.5rem;
+            }
+
+            .header .subtitle {
+                font-size: 1.2rem;
+            }
+
+            .nav ul {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .features-grid,
+            .showcase-grid,
+            .tech-grid,
+            .install-steps,
+            .shortcuts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 动画效果 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .feature-card,
+        .showcase-item,
+        .tech-item,
+        .step {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        /* 滚动平滑 */
+        html {
+            scroll-behavior: smooth;
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部 -->
+    <header class="header">
+        <div class="container">
+            <div class="logo"></div>
+            <h1>Tabula</h1>
+            <p class="subtitle">简洁高效的标签页管理器</p>
+            <p>让您的Chrome浏览体验更加流畅和高效</p>
+        </div>
+    </header>
+
+    <!-- 导航 -->
+    <nav class="nav">
+        <div class="container">
+            <ul>
+                <li><a href="#features">功能特色</a></li>
+                <li><a href="#showcase">核心功能</a></li>
+                <li><a href="#tech">技术特点</a></li>
+                <li><a href="#installation">安装指南</a></li>
+                <li><a href="#shortcuts">快捷键</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- 功能特色 -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">功能特色</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🚀</div>
+                    <h3>会话管理</h3>
+                    <p>保存和恢复浏览会话，让您的工作流程永不中断。支持多窗口会话保存，随时恢复工作状态。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📁</div>
+                    <h3>智能分组</h3>
+                    <p>按窗口自动组织标签页，清晰的层级结构让您轻松管理数百个标签页。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">✏️</div>
+                    <h3>标题编辑</h3>
+                    <p>自定义标签页标题，支持批量编辑操作，让标签页更具辨识度。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h3>快速搜索</h3>
+                    <p>强大的搜索功能，支持标题和URL搜索，实时过滤结果，快速定位目标标签页。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>一键操作</h3>
+                    <p>简单高效的操作方式，一键打开、关闭、切换标签页，提升浏览效率。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🌙</div>
+                    <h3>现代设计</h3>
+                    <p>深色主题设计，护眼舒适，响应式布局适配各种屏幕尺寸。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 核心功能展示 -->
+    <section id="showcase" class="showcase">
+        <div class="container">
+            <h2 class="section-title">核心功能</h2>
+            <div class="showcase-grid">
+                <div class="showcase-item">
+                    <h3><span class="icon">📋</span>完整页面管理</h3>
+                    <ul>
+                        <li>点击插件图标打开完整管理页面</li>
+                        <li>清晰的标签页层级展示</li>
+                        <li>支持多窗口同时管理</li>
+                        <li>实时同步标签页状态</li>
+                    </ul>
+                </div>
+                <div class="showcase-item">
+                    <h3><span class="icon">💾</span>会话保存与恢复</h3>
+                    <ul>
+                        <li>保存所有窗口为会话</li>
+                        <li>支持单窗口保存</li>
+                        <li>一键恢复完整会话</li>
+                        <li>会话智能命名</li>
+                    </ul>
+                </div>
+                <div class="showcase-item">
+                    <h3><span class="icon">⭐</span>收藏夹管理</h3>
+                    <ul>
+                        <li>快速添加页面到收藏夹</li>
+                        <li>支持收藏标题编辑</li>
+                        <li>云端同步收藏数据</li>
+                        <li>收藏夹搜索功能</li>
+                    </ul>
+                </div>
+                <div class="showcase-item">
+                    <h3><span class="icon">🎨</span>搜索覆盖层</h3>
+                    <ul>
+                        <li>Alt+M 快速呼出搜索界面</li>
+                        <li>在当前页面显示搜索覆盖层</li>
+                        <li>支持键盘导航</li>
+                        <li>快速跳转到目标标签页</li>
+                    </ul>
+                </div>
+                <div class="showcase-item">
+                    <h3><span class="icon">🌐</span>多语言支持</h3>
+                    <ul>
+                        <li>支持中文和英文界面</li>
+                        <li>动态语言切换</li>
+                        <li>本地化用户体验</li>
+                        <li>可扩展语言包</li>
+                    </ul>
+                </div>
+                <div class="showcase-item">
+                    <h3><span class="icon">⚙️</span>高级功能</h3>
+                    <ul>
+                        <li>右键菜单快速操作</li>
+                        <li>批量标题修改</li>
+                        <li>智能排序功能</li>
+                        <li>键盘快捷键支持</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 技术特点 -->
+    <section id="tech" class="tech-specs">
+        <div class="container">
+            <h2 class="section-title">技术特点</h2>
+            <div class="tech-grid">
+                <div class="tech-item">
+                    <div class="icon">🔧</div>
+                    <h4>模块化设计</h4>
+                    <p>清晰的代码结构，面向对象编程，易于维护和扩展</p>
+                </div>
+                <div class="tech-item">
+                    <div class="icon">⚡</div>
+                    <h4>性能优化</h4>
+                    <p>异步操作，事件委托，内存管理，数据缓存优化</p>
+                </div>
+                <div class="tech-item">
+                    <div class="icon">🛡️</div>
+                    <h4>安全可靠</h4>
+                    <p>权限最小化，输入验证，数据加密，防止安全漏洞</p>
+                </div>
+                <div class="tech-item">
+                    <div class="icon">🔄</div>
+                    <h4>云端同步</h4>
+                    <p>CouchDB数据同步，多设备数据一致性，离线可用</p>
+                </div>
+                <div class="tech-item">
+                    <div class="icon">📱</div>
+                    <h4>响应式设计</h4>
+                    <p>适配各种屏幕尺寸，现代化UI设计，用户体验优良</p>
+                </div>
+                <div class="tech-item">
+                    <div class="icon">🌟</div>
+                    <h4>Manifest V3</h4>
+                    <p>基于最新Chrome扩展标准，安全性和性能双重保障</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 安装指南 -->
+    <section id="installation" class="installation">
+        <div class="container">
+            <h2 class="section-title">安装指南</h2>
+            <div class="install-steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h4>访问应用商店</h4>
+                    <p>点击下方按钮前往Chrome应用商店</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h4>一键安装</h4>
+                    <p>点击"添加到Chrome"完成安装</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h4>立即使用</h4>
+                    <p>点击工具栏图标开始使用Tabula</p>
+                </div>
+            </div>
+            
+            <!-- Chrome应用商店按钮 -->
+            <div style="text-align: center; margin-top: 50px;">
+                <a href="#" class="chrome-store-btn" style="display: inline-flex; align-items: center; gap: 12px; background: white; color: #2d3748; padding: 15px 30px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: all 0.3s ease; box-shadow: 0 5px 20px rgba(255, 255, 255, 0.3);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L19 5L17 7V9C17 10.1 16.1 11 15 11H9C7.9 11 7 10.1 7 9V7L5 5L3 7V9C3 10.1 2.1 11 1 11H0V13H1C2.1 13 3 13.9 3 15V17L5 19L7 17V15C7 13.9 7.9 13 9 13H15C16.1 13 17 13.9 17 15V17L19 19L21 17V15C21 13.9 21.9 13 23 13H24V11H23C21.9 11 21 10.1 21 9Z" fill="#4285f4"/>
+                    </svg>
+                    在Chrome应用商店中获取
+                </a>
+                <p style="margin-top: 15px; opacity: 0.8; font-size: 0.9rem;">即将上线 Chrome Web Store</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 快捷键 -->
+    <section id="shortcuts" class="shortcuts">
+        <div class="container">
+            <h2 class="section-title">快捷键</h2>
+            <div class="shortcuts-grid">
+                <div class="shortcut-item">
+                    <div class="shortcut-key">Alt + T</div>
+                    <div class="shortcut-desc">打开或切换到Tabula管理器页面</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-key">Alt + M</div>
+                    <div class="shortcut-desc">在当前页面显示搜索覆盖层</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-key">Ctrl + K</div>
+                    <div class="shortcut-desc">聚焦搜索框（在管理器页面）</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-key">Enter</div>
+                    <div class="shortcut-desc">跳转到选中的标签页</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-key">ESC</div>
+                    <div class="shortcut-desc">关闭搜索覆盖层</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-key">↑↓</div>
+                    <div class="shortcut-desc">在搜索结果中导航</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 底部 -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <h3>开始使用Tabula</h3>
+                <p>立即体验简洁高效的标签页管理，让您的Chrome浏览更加流畅。Tabula采用MIT开源协议，完全免费使用。</p>
+                <a href="#installation" class="download-btn">立即安装</a>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 Tabula. MIT License. 开源免费使用。</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // 平滑滚动效果
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // 滚动时导航高亮
+        window.addEventListener('scroll', () => {
+            const sections = document.querySelectorAll('section[id]');
+            const navLinks = document.querySelectorAll('.nav a[href^="#"]');
+            
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.getBoundingClientRect().top;
+                if (sectionTop <= 100) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === `#${current}`) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // 添加动画效果
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.feature-card, .showcase-item, .tech-item, .step').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(30px)';
+            el.style.transition = 'all 0.6s ease-out';
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>

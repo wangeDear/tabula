@@ -6,7 +6,7 @@
 class CouchDBManager {
   constructor() {
     this.config = {
-      url: 'http://172.245.53.139:5984/tabula',
+      url: 'http://172.245.53.104:5984/tabula',
       auth: 'Basic dGFidWxhOnRhYnVsYTEyMzQ1Ng==', // tabula:tabula123456
       headers: {
         'Authorization': 'Basic dGFidWxhOnRhYnVsYTEyMzQ1Ng==',

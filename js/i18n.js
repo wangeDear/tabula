@@ -422,6 +422,11 @@ class I18nManager {
       // 保存到存储
       await chrome.storage.local.set({ language });
       
+      // 同时保存到CouchDB（如果有ManagerApp实例）
+      if (window.tabulaApp && window.tabulaApp.saveUserSettingsToCouchDB) {
+        window.tabulaApp.saveUserSettingsToCouchDB({ language });
+      }
+      
       console.log('[I18N] Language switched from', oldLanguage, 'to', language);
       
       // 触发语言变更事件

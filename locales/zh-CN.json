@@ -63,8 +63,8 @@
   "notification.title_updated": "标题更新成功",
   "notification.sync_success": "收藏夹同步成功",
   "notification.sync_failed": "收藏夹同步失败，使用本地数据",
-  "notification.connection_success": "CouchDB连接测试成功",
-  "notification.connection_failed": "CouchDB连接测试失败",
+  "notification.connection_success": "连接测试成功",
+  "notification.connection_failed": "连接测试失败",
   "notification.jumped_to_tab": "已跳转到已打开的标签页",
   "notification.opened_new_tab": "已在新标签页中打开",
   

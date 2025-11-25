@@ -63,8 +63,8 @@
   "notification.title_updated": "Title Updated Successfully",
   "notification.sync_success": "Favorites Synced Successfully",
   "notification.sync_failed": "Favorites Sync Failed, Using Local Data",
-  "notification.connection_success": "CouchDB Connection Test Successful",
-  "notification.connection_failed": "CouchDB Connection Test Failed",
+  "notification.connection_success": "Connection Test Successful",
+  "notification.connection_failed": "Connection Test Failed",
   "notification.jumped_to_tab": "Jumped to Existing Tab",
   "notification.opened_new_tab": "Opened in New Tab",
   

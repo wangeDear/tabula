@@ -2,6 +2,8 @@ console.log('[BACKGROUND] Script loaded and running. This should be the very fir
 
 // Tab Deck 后台服务脚本
 
+
+
 // --- 调试：监控所有 sync 存储变化 ---
 chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === 'sync') {
@@ -153,6 +155,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     await openManagerAndShowAddFavoriteModal(tab);
   } else if (info.menuItemId === "edit-favorite-title") {
     console.log('[BACKGROUND] Edit favorite title triggered from context menu for URL:', tab.url);
+    // 使用chrome.storage.sync作为临时方案
     const { favorites = [] } = await chrome.storage.sync.get('favorites');
     const favorite = favorites.find(f => f.url === tab.url);
 
@@ -349,8 +352,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse(allTabs);
       } else if (request.action === 'get-favorites') {
         // 获取收藏夹
+        console.log('[BACKGROUND] get-favorites request received');
+        
+        // 直接从chrome.storage.sync获取数据（简化版本）
         const result = await chrome.storage.sync.get(['favorites']);
-        sendResponse(result.favorites || []);
+        const favorites = result.favorites || [];
+        console.log('[BACKGROUND] Returning sync storage favorites:', favorites.length, 'items');
+        console.log('[BACKGROUND] Favorites data:', favorites);
+        sendResponse(favorites);
       } else if (request.action === 'get-tab-metadata') {
         // 获取标签页元数据
         const result = await chrome.storage.local.get(['tabMetadata']);
@@ -396,7 +405,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         await chrome.storage.local.set({ tabMetadata });
         sendResponse({ success: true });
       } else if (request.action === 'add-favorite') {
-        // 添加收藏
+        // 添加收藏 - 使用旧的chrome.storage.sync方法作为临时方案
+        console.log('[BACKGROUND] add-favorite called - using chrome.storage.sync temporarily');
         const favorite = {
           title: request.title,
           url: request.url,
@@ -407,11 +417,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         await addFavoriteToStorage(favorite);
         sendResponse({ success: true });
       } else if (request.action === 'edit-favorite') {
-        // 编辑收藏
+        // 编辑收藏 - 使用旧方法作为临时方案
+        console.log('[BACKGROUND] edit-favorite called - using chrome.storage.sync temporarily');
         await updateFavoriteTitleInStorage(request.url, request.title);
         sendResponse({ success: true });
       } else if (request.action === 'remove-favorite') {
-        // 移除收藏
+        // 移除收藏 - 使用旧方法作为临时方案
+        console.log('[BACKGROUND] remove-favorite called - using chrome.storage.sync temporarily');
         await removeFavoriteFromStorage(request.url);
         sendResponse({ success: true });
       } else if (request.action === 'close-tab') {

@@ -18,48 +18,48 @@ class ManagerApp {
   async init() {
     // 记录加载开始时间
     const loadingStartTime = performance.now();
-    
+
     // 添加初始化状态class
     document.body.classList.add('initializing');
-    
+
     // 初始化国际化系统
     await this.i18n.init();
-    
+
     // 显示初始化loading
     this.showLoading(this.i18n.t('loading.starting'));
-    
+
     try {
       console.log('[MANAGER] Starting initialization...');
-    await this.loadData();
+      await this.loadData();
       console.log('[MANAGER] Data loaded successfully');
-      
-    this.setupEventListeners();
+
+      this.setupEventListeners();
       console.log('[MANAGER] Event listeners setup');
-      
-    this.setupMessageListener();
+
+      this.setupMessageListener();
       console.log('[MANAGER] Message listener setup');
-      
+
       this.setupI18nEventListeners();
       console.log('[MANAGER] I18n event listeners setup');
-      
-    this.applyTheme(this.isLightMode);
+
+      this.applyTheme(this.isLightMode);
       console.log('[MANAGER] Theme applied');
-      
-    this.render();
+
+      this.render();
       console.log('[MANAGER] Initial render completed');
-      
+
       // 初始化同步状态指示器
       this.updateSyncStatusInfo();
       console.log('[MANAGER] Sync status updated');
-      
+
       // 翻译页面
       this.i18n.translatePage();
       console.log('[MANAGER] Page translated');
-      
+
       console.log('[MANAGER] Initialization completed successfully');
     } catch (error) {
       console.error('[MANAGER] Initialization failed:', error);
-      
+
       // 显示错误状态给用户
       const windowList = document.getElementById('window-list');
       if (windowList) {
@@ -75,21 +75,21 @@ class ManagerApp {
           </div>
         `;
       }
-      
+
       this.showSyncNotification('error', this.i18n.t('error.init_failed') + ': ' + error.message);
     } finally {
       // 确保loading至少显示500ms，让用户感知到加载过程
       const minLoadingTime = 500;
       const loadingDuration = performance.now() - loadingStartTime;
       const remainingTime = Math.max(0, minLoadingTime - loadingDuration);
-      
+
       setTimeout(() => {
         // 移除初始化状态
         document.body.classList.remove('initializing');
-        
+
         // 确保loading被隐藏
         this.hideLoading();
-        
+
         console.log('[MANAGER] Initialization process completed');
       }, remainingTime);
     }
@@ -98,42 +98,56 @@ class ManagerApp {
   async loadData() {
     // 更新loading文案
     this.updateLoadingText(this.i18n.t('loading.local_data'));
-    
+
     // 检查权限
     await this.checkPermissions();
-    
+
     // Load from local storage (for tabMetadata and theme - local only)
     const localResult = await chrome.storage.local.get(['tabMetadata', 'isLightMode']);
     this.tabMetadata = localResult.tabMetadata || {};
     this.isLightMode = localResult.isLightMode || false;
 
-    // Load from sync storage (for favorites and last active section - auto-synced across devices)
-    const syncResult = await chrome.storage.sync.get(['favorites', 'lastActiveSection']);
-    let localFavorites = syncResult.favorites || [];
-    this.currentView = syncResult.lastActiveSection || 'current'; // Use currentView for lastActiveSection
-
     // 更新loading文案
-    this.updateLoadingText(this.i18n.t('loading.syncing_favorites'));
-    
-    // 尝试从CouchDB同步收藏夹数据
+    this.updateLoadingText(this.i18n.t('loading.syncing_data'));
+
+    // 从CouchDB加载用户设置和收藏夹数据
     try {
-      console.log('[MANAGER] Syncing favorites with CouchDB...');
+      console.log('[MANAGER] Loading data from CouchDB...');
       this.setFooterButtonLoading('sync-status-btn', true);
-      
-      this.favorites = await this.couchDB.syncFavorites(localFavorites);
-      
-      // 如果同步成功且数据有变化，更新本地存储
-      if (JSON.stringify(this.favorites) !== JSON.stringify(localFavorites)) {
+
+
+
+      // 获取用户设置
+      const userSettings = await this.couchDB.getUserSettings();
+      this.currentView = userSettings?.lastActiveSection || 'current';
+
+      // 获取收藏夹数据（直接从CouchDB，不再需要本地同步）
+      this.favorites = await this.couchDB.getFavorites();
+      console.log('[MANAGER] Loaded favorites from CouchDB:', this.favorites.length, 'items');
+      console.log('[MANAGER] Favorites data:', this.favorites);
+
+      // 更新同步时间
+      this.couchDB.lastSyncTime = new Date().toISOString();
+      console.log('[MANAGER] Initial load completed, lastSyncTime:', this.couchDB.lastSyncTime);
+
+      console.log('[MANAGER] Data loaded from CouchDB successfully');
+      this.showSyncNotification('success', this.i18n.t('notification.sync_success'));
+
+      // 自动同步收藏数据到chrome.storage.sync，供Alt+M搜索使用
+      try {
         await chrome.storage.sync.set({ favorites: this.favorites });
-        console.log('[MANAGER] Local favorites updated from CouchDB sync');
-        
-        // 显示同步成功通知
-        this.showSyncNotification('success', this.i18n.t('notification.sync_success'));
+        console.log('[MANAGER] Auto-synced', this.favorites.length, 'favorites to chrome.storage.sync for search');
+      } catch (error) {
+        console.log('[MANAGER] Failed to auto-sync favorites to storage:', error);
       }
+
     } catch (error) {
-      console.error('[MANAGER] CouchDB sync failed, using local data:', error);
-      this.favorites = localFavorites;
-      
+      console.error('[MANAGER] Failed to load data from CouchDB:', error);
+
+      // 回退到默认设置
+      this.currentView = 'current';
+      this.favorites = [];
+
       // 显示同步失败通知
       this.showSyncNotification('error', this.i18n.t('notification.sync_failed'));
     } finally {
@@ -151,7 +165,7 @@ class ManagerApp {
   setupEventListeners() {
     // Setup Chrome tab event listeners for real-time updates
     this.setupTabEventListeners();
-    
+
     document.body.addEventListener('click', (e) => {
       const target = e.target;
       const closest = (selector) => target.closest(selector);
@@ -232,57 +246,59 @@ class ManagerApp {
         this.toggleTheme();
         return;
       }
-      
+
       const syncStatusBtn = closest('#sync-status-btn');
       if (syncStatusBtn) {
         console.log('[MANAGER] Sync status button clicked');
         this.showSyncStatusModal();
         return;
       }
-      
+
       const syncModalCloseBtn = closest('#sync-modal-close-btn');
       if (syncModalCloseBtn) {
         this.hideSyncStatusModal();
         return;
       }
-      
+
       const forceSyncBtn = closest('#force-sync-btn');
       if (forceSyncBtn) {
         this.forceSyncFavorites();
         return;
       }
-      
+
       const testConnectionBtn = closest('#test-connection-btn');
       if (testConnectionBtn) {
         this.testCouchDBConnection();
         return;
       }
-      
+
+
+
       // 用户ID编辑相关按钮
       const editUserIdBtn = closest('#edit-user-id-btn');
       if (editUserIdBtn) {
         this.startEditUserId();
         return;
       }
-      
+
       const saveUserIdBtn = closest('#save-user-id-btn');
       if (saveUserIdBtn) {
         this.saveUserId();
         return;
       }
-      
+
       const cancelEditUserIdBtn = closest('#cancel-edit-user-id-btn');
       if (cancelEditUserIdBtn) {
         this.cancelEditUserId();
         return;
       }
-      
+
       const generateUserIdBtn = closest('#generate-user-id-btn');
       if (generateUserIdBtn) {
         this.generateNewUserId();
         return;
       }
-      
+
       // 语言切换按钮
       const languageToggleBtn = closest('#language-toggle-btn');
       if (languageToggleBtn) {
@@ -291,7 +307,7 @@ class ManagerApp {
       }
 
       // Close context menus if clicked outside
-  const contextMenu = document.getElementById('context-menu');
+      const contextMenu = document.getElementById('context-menu');
       const favoriteContextMenu = document.getElementById('favorite-context-menu');
       if (contextMenu && contextMenu.style.display === 'block' && !contextMenu.contains(target)) {
         contextMenu.style.display = 'none';
@@ -346,7 +362,7 @@ class ManagerApp {
   }
 
   setupMessageListener() {
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
       if (request.action === 'showEditFavoriteModal') {
         this.switchView('favorites'); // Switch to favorites section
         // Ensure render completes before showing modal
@@ -354,6 +370,42 @@ class ManagerApp {
       } else if (request.action === 'showAddFavoriteModal') {
         // 显示添加收藏弹窗
         setTimeout(() => this.showAddFavoriteModal(request.title, request.url, request.favIconUrl), 100);
+      } else if (request.action === 'get-couchdb-favorites') {
+        // 响应来自background.js的收藏数据请求
+        try {
+          // 检查CouchDB是否已初始化
+          if (!this.couchDB) {
+            console.log('[MANAGER] CouchDB not initialized yet, returning empty array');
+            sendResponse({ success: true, favorites: [] });
+            return true;
+          }
+
+          const favorites = await this.couchDB.getFavorites();
+          console.log('[MANAGER] Providing CouchDB favorites to background.js:', favorites.length, 'items');
+          sendResponse({ success: true, favorites: favorites });
+        } catch (error) {
+          console.error('[MANAGER] Failed to get CouchDB favorites for background.js:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+        return true; // 保持消息通道开放以支持异步响应
+      } else if (request.action === 'sync-favorites-to-storage') {
+        // 将CouchDB收藏同步到chrome.storage.sync（用于Alt+M搜索）
+        try {
+          if (!this.couchDB) {
+            console.log('[MANAGER] CouchDB not initialized, cannot sync');
+            sendResponse({ success: false, error: 'CouchDB not initialized' });
+            return true;
+          }
+
+          const favorites = await this.couchDB.getFavorites();
+          await chrome.storage.sync.set({ favorites: favorites });
+          console.log('[MANAGER] Synced', favorites.length, 'favorites to chrome.storage.sync');
+          sendResponse({ success: true, count: favorites.length });
+        } catch (error) {
+          console.error('[MANAGER] Failed to sync favorites to storage:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+        return true;
       }
     });
   }
@@ -424,24 +476,24 @@ class ManagerApp {
     if (this.refreshTimeout) {
       clearTimeout(this.refreshTimeout);
     }
-    
+
     this.refreshTimeout = setTimeout(async () => {
       try {
         console.log('[MANAGER] Refreshing tab data...');
-        
+
         // 使用重试逻辑重新获取数据
         await this.loadTabsWithRetry(2, 500); // 减少重试次数和延迟，因为这是刷新操作
-        
+
         console.log('[MANAGER] Tab data refreshed. Total tabs:', this.allTabs.length);
-        
+
         // 如果当前在查看当前会话，则重新渲染
         if (this.currentView === 'current') {
           this.renderWindows();
         }
-        
+
         // 更新计数
         this.updateCounts();
-        
+
         // 更新搜索面板结果（如果正在使用）
         const paletteOverlay = document.getElementById('search-palette-overlay');
         if (paletteOverlay && paletteOverlay.style.display === 'flex') {
@@ -450,9 +502,9 @@ class ManagerApp {
             this.renderPaletteResults(paletteInput.value.toLowerCase());
           }
         }
-    } catch (error) {
+      } catch (error) {
         console.error('[MANAGER] Error refreshing tab data:', error);
-        
+
         // 刷新失败时，显示错误状态
         if (this.currentView === 'current') {
           const windowList = document.getElementById('window-list');
@@ -499,7 +551,15 @@ class ManagerApp {
   switchView(view) {
     this.currentView = view;
     this.searchQuery = ''; // Reset search when switching views
-    chrome.storage.sync.set({ lastActiveSection: view });
+
+    // Clear search input field
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+      searchInput.value = '';
+    }
+
+    // 保存用户设置到CouchDB
+    this.saveUserSettingsToCouchDB({ lastActiveSection: view });
 
     document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
       item.classList.toggle('active', item.dataset.view === view);
@@ -524,7 +584,7 @@ class ManagerApp {
 
   renderWindows() {
     console.log('[MANAGER] renderWindows called, allTabs.length:', this.allTabs.length);
-    
+
     const windowList = document.getElementById('window-list');
     if (!windowList) {
       console.error('[MANAGER] Window list element not found!');
@@ -532,13 +592,13 @@ class ManagerApp {
     }
 
     // Clear previous content
-      windowList.innerHTML = '';
+    windowList.innerHTML = '';
 
     // 如果没有标签页数据，显示适当的消息
     if (!this.allTabs || this.allTabs.length === 0) {
       console.warn('[MANAGER] No tabs available for rendering');
       windowList.innerHTML = '<div class="empty-state">正在加载标签页数据...</div>';
-      
+
       // 尝试重新获取数据
       setTimeout(() => {
         console.log('[MANAGER] Attempting to refresh tab data due to empty state');
@@ -552,7 +612,7 @@ class ManagerApp {
         console.warn('[MANAGER] Invalid tab object:', tab);
         return acc;
       }
-      
+
       if (!acc[tab.windowId]) {
         acc[tab.windowId] = { id: tab.windowId, tabs: [] };
       }
@@ -568,29 +628,29 @@ class ManagerApp {
     }
 
     try {
-    Object.values(windows).forEach((win, index) => {
-      const group = document.createElement('div');
-      group.className = 'window-group';
+      Object.values(windows).forEach((win, index) => {
+        const group = document.createElement('div');
+        group.className = 'window-group';
         group.innerHTML = `<h2 class="window-header">${this.i18n.t('window.header', { index: index + 1, count: win.tabs.length })}</h2>`;
 
-      win.tabs.forEach(tab => {
+        win.tabs.forEach(tab => {
           try {
-        const item = this.createTabListItem(tab);
-        group.appendChild(item);
+            const item = this.createTabListItem(tab);
+            group.appendChild(item);
           } catch (error) {
             console.error('[MANAGER] Error creating tab list item for tab:', tab, error);
           }
+        });
+        windowList.appendChild(group);
       });
-      windowList.appendChild(group);
-    });
 
       console.log('[MANAGER] Successfully rendered', Object.keys(windows).length, 'windows');
 
-    // Apply search filter after rendering
-    this.filterListItems(windowList, this.searchQuery, 'current');
-    
-    // 设置激活标签页的视觉指示器
-    this.setInitialActiveTab();
+      // Apply search filter after rendering
+      this.filterListItems(windowList, this.searchQuery, 'current');
+
+      // 设置激活标签页的视觉指示器
+      this.setInitialActiveTab();
     } catch (error) {
       console.error('[MANAGER] Error during window rendering:', error);
       windowList.innerHTML = '<div class="empty-state">渲染窗口时出错，请刷新页面重试</div>';
@@ -612,6 +672,9 @@ class ManagerApp {
       const item = this.createFavoriteListItem(favorite);
       favoritesListContainer.appendChild(item);
     });
+
+    // Apply search filter after rendering
+    this.filterListItems(favoritesListContainer, this.searchQuery, 'favorites');
   }
 
   createTabListItem(tab) {
@@ -668,8 +731,8 @@ class ManagerApp {
   updateTagsDisplay(item, tags) {
     const container = item.querySelector('.tags-container');
     if (container) {
-    container.innerHTML = '';
-    if (tags) tags.forEach(tag => container.innerHTML += `<span class="tag">${tag}</span>`);
+      container.innerHTML = '';
+      if (tags) tags.forEach(tag => container.innerHTML += `<span class="tag">${tag}</span>`);
     }
   }
 
@@ -715,35 +778,63 @@ class ManagerApp {
     return favIconUrl || 'icons/icon16.png';
   }
 
+  /**
+   * 重新加载收藏夹数据
+   */
+  async reloadFavorites() {
+    try {
+      console.log('[MANAGER] Reloading favorites from CouchDB...');
+      this.favorites = await this.couchDB.getFavorites();
+      console.log('[MANAGER] Reloaded', this.favorites.length, 'favorites');
+
+      // 更新同步时间
+      this.couchDB.lastSyncTime = new Date().toISOString();
+      console.log('[MANAGER] Updated lastSyncTime:', this.couchDB.lastSyncTime);
+
+      // 自动同步收藏数据到chrome.storage.sync,供Alt+M搜索使用
+      try {
+        await chrome.storage.sync.set({ favorites: this.favorites });
+        console.log('[MANAGER] Auto-synced favorites to chrome.storage.sync');
+      } catch (error) {
+        console.log('[MANAGER] Failed to auto-sync favorites to storage:', error);
+      }
+
+      // 如果当前在收藏夹视图,重新渲染
+      if (this.currentView === 'favorites') {
+        this.renderFavorites();
+      }
+
+      // 更新计数
+      this.updateCounts();
+
+      // 如果在当前会话视图,也需要重新渲染以更新收藏图标
+      if (this.currentView === 'current') {
+        this.renderWindows();
+      }
+    } catch (error) {
+      console.error('[MANAGER] Failed to reload favorites:', error);
+      throw error;
+    }
+  }
+
   // --- Favorites Management ---
   async toggleFavorite(title, url, favIconUrl) {
     const existingFavorite = this.favorites.find(f => f.url === url);
-    
+
     if (existingFavorite) {
       this.showLoading('正在删除收藏...');
-      
+
       try {
-        // 删除收藏
-      this.favorites = this.favorites.filter(f => f.url !== url);
-      chrome.runtime.sendMessage({ action: 'removeFavorite', url });
-        
-        // 同步到CouchDB - 使用缓存的ID
-        try {
-          if (existingFavorite._couchdb_id) {
-            await this.couchDB.deleteFavorite(existingFavorite._couchdb_id);
-    } else {
-            // 如果没有缓存ID，则查询
-            const remoteFavorite = await this.couchDB.findFavoriteByUrl(url);
-            if (remoteFavorite) {
-              await this.couchDB.deleteFavorite(remoteFavorite.id);
-            }
-          }
-        } catch (error) {
-          console.error('[MANAGER] Failed to delete favorite from CouchDB:', error);
+        // 从CouchDB删除收藏
+        const remoteFavorite = await this.couchDB.findFavoriteByUrl(url);
+        if (remoteFavorite) {
+          await this.couchDB.deleteFavorite(remoteFavorite.id);
         }
-        
-        await chrome.storage.sync.set({ favorites: this.favorites });
-        this.render(); // Re-render to reflect changes
+
+        // 重新加载收藏夹数据
+        await this.reloadFavorites();
+
+        chrome.runtime.sendMessage({ action: 'removeFavorite', url });
         this.showSyncNotification('success', this.i18n.t('notification.favorite_removed'));
       } catch (error) {
         console.error('[MANAGER] Error removing favorite:', error);
@@ -761,8 +852,8 @@ class ManagerApp {
    * 显示添加收藏弹窗
    */
   showAddFavoriteModal(title, url, favIconUrl) {
-      if (!title || !url) return;
-      
+    if (!title || !url) return;
+
     const modal = document.getElementById('modal-overlay');
     const modalTitle = document.getElementById('modal-title');
     const modalBody = document.getElementById('modal-body');
@@ -822,35 +913,26 @@ class ManagerApp {
    */
   async addFavoriteWithTitle(title, url, favIconUrl) {
     this.showLoading('正在添加收藏...');
-    
+
     try {
       // 处理 favIconUrl，将 base64 编码替换为默认图标
       const sanitizedFavIconUrl = this.sanitizeFavIconUrl(favIconUrl);
-      
+
       const favorite = {
         title,
         url,
         favIconUrl: sanitizedFavIconUrl,
         addedAt: new Date().toISOString()
       };
-      
-      // 同步到CouchDB并获取ID
-      try {
-        const result = await this.couchDB.addFavorite(favorite);
-        if (result.id) {
-          favorite._couchdb_id = result.id;
-          favorite._couchdb_rev = result.rev;
-        }
-      } catch (error) {
-        console.error('[MANAGER] Failed to add favorite to CouchDB:', error);
-      }
-      
-      this.favorites.unshift(favorite);
+
+      // 添加到CouchDB
+      await this.couchDB.addFavorite(favorite);
+
+      // 重新加载收藏夹数据
+      await this.reloadFavorites();
+
       chrome.runtime.sendMessage({ action: 'addFavorite', favorite });
-    
-    await chrome.storage.sync.set({ favorites: this.favorites });
-    this.render(); // Re-render to reflect changes
-      
+
       // 显示成功通知
       this.showSyncNotification('success', this.i18n.t('notification.favorite_added', { title }));
     } catch (error) {
@@ -864,20 +946,20 @@ class ManagerApp {
   async openFavorite(url) {
     // 首先检查是否有匹配的已打开标签页
     const existingTab = this.allTabs.find(tab => tab.url === url);
-    
+
     if (existingTab) {
       // 如果找到匹配的标签页，直接跳转到该标签页
       console.log('[MANAGER] Found existing tab for URL:', url, 'Tab ID:', existingTab.id);
       await chrome.tabs.update(existingTab.id, { active: true });
       await chrome.windows.update(existingTab.windowId, { focused: true });
-      
+
       // 显示通知
       this.showSyncNotification('success', '已跳转到已打开的标签页');
     } else {
       // 如果没有找到匹配的标签页，创建新标签页
       console.log('[MANAGER] No existing tab found for URL:', url, 'Creating new tab');
       await chrome.tabs.create({ url: url });
-      
+
       // 显示通知
       this.showSyncNotification('info', '已在新标签页中打开');
     }
@@ -942,88 +1024,29 @@ class ManagerApp {
     if (!favorite) return;
 
     this.showLoading('正在更新标题...');
-    
+
     try {
-      favorite.title = newTitle;
-      favorite.updatedAt = new Date().toISOString();
-      
+      // 查找远程收藏夹并更新
+      const remoteFavorite = await this.couchDB.findFavoriteByUrl(url);
+      if (remoteFavorite) {
+        await this.couchDB.updateFavorite(remoteFavorite.id, { title: newTitle });
+      }
+
+      // 重新加载收藏夹数据
+      await this.reloadFavorites();
+
       // Update the title in allTabs if it's an open tab
       const openTab = this.allTabs.find(t => t.url === url);
       if (openTab) {
-        // Update the title directly in the openTab object
-        openTab.title = newTitle;
-        // If you also store custom names for open tabs, update that too
         const meta = this.getTabMeta(openTab.id);
-        if (meta) { // Check if meta exists
-          // Only update meta.name if it was previously set or if we want to force it
-          // If meta.name was undefined, it means the original tab title was used.
-          // Now, we want the custom title to be reflected.
-          meta.name = newTitle; 
+        if (meta) {
+          meta.name = newTitle;
           this.tabMetadata[openTab.id] = meta;
           chrome.storage.local.set({ tabMetadata: this.tabMetadata });
         }
       }
-      
-      // 同步到CouchDB - 使用缓存的文档信息
-      try {
-        const sanitizedTitle = String(newTitle).trim();
-        if (sanitizedTitle) {
-          if (favorite._couchdb_id) {
-            // 使用缓存的完整文档或ID/revision更新
-            const result = await this.couchDB.updateFavorite(
-              favorite._couchdb_id, 
-              { title: sanitizedTitle },
-              favorite._couchdb_rev,
-              favorite._couchdb_doc
-            );
-            
-            // 更新缓存的revision和文档
-            if (result.rev) {
-              favorite._couchdb_rev = result.rev;
-              if (favorite._couchdb_doc) {
-                favorite._couchdb_doc._rev = result.rev;
-                favorite._couchdb_doc.title = sanitizedTitle;
-                favorite._couchdb_doc.updatedAt = new Date().toISOString();
-              }
-            }
-            
-            console.log('[MANAGER] Successfully updated favorite title in CouchDB using cached data');
-          } else {
-            // 如果没有缓存ID，则查询后更新
-            const remoteFavorite = await this.couchDB.findFavoriteByUrl(url);
-            if (remoteFavorite) {
-              const result = await this.couchDB.updateFavorite(remoteFavorite.id, { title: sanitizedTitle });
-              // 缓存ID、revision和文档以供下次使用
-              favorite._couchdb_id = remoteFavorite.id;
-              favorite._couchdb_rev = result.rev || remoteFavorite.rev;
-              favorite._couchdb_doc = {
-                _id: remoteFavorite.id,
-                _rev: result.rev || remoteFavorite.rev,
-                type: remoteFavorite.type,
-                title: sanitizedTitle,
-                url: remoteFavorite.url,
-                favIconUrl: remoteFavorite.favIconUrl,
-                owner: remoteFavorite.owner,
-                addedAt: remoteFavorite.addedAt,
-                updatedAt: new Date().toISOString()
-              };
-              console.log('[MANAGER] Successfully updated favorite title in CouchDB and cached full document');
-            }
-          }
-        }
-      } catch (error) {
-        console.error('[MANAGER] Failed to update favorite title in CouchDB:', error);
-        // 显示详细错误信息
-        this.showSyncNotification('error', `更新标题失败: ${error.message}`);
-        return; // 提前返回，不保存本地更改
-      }
-      
+
       chrome.runtime.sendMessage({ action: 'updateFavoriteTitle', url, title: newTitle });
-      
-      // 更新本地存储
-      await chrome.storage.sync.set({ favorites: this.favorites });
-      
-      this.render(); // Re-render to show updated title
       this.showSyncNotification('success', this.i18n.t('notification.title_updated'));
     } catch (error) {
       console.error('[MANAGER] Error updating favorite title:', error);
@@ -1067,35 +1090,35 @@ class ManagerApp {
       if (!action) return;
       const meta = this.getTabMeta(this.currentTabId);
 
-    switch (action) {
-      case 'rename':
-        const newName = prompt('输入新的名称:', meta.name || '');
-        if (newName !== null) {
-          meta.name = newName;
+      switch (action) {
+        case 'rename':
+          const newName = prompt('输入新的名称:', meta.name || '');
+          if (newName !== null) {
+            meta.name = newName;
             this.tabMetadata[this.currentTabId] = meta;
             chrome.storage.local.set({ tabMetadata: this.tabMetadata });
             this.render();
-        }
-        break;
-      case 'favorite':
+          }
+          break;
+        case 'favorite':
           // 检查是否已收藏
           const isAlreadyFavorited = this.favorites.some(f => f.url === tab.url);
           if (isAlreadyFavorited) {
             // 如果已收藏，直接取消收藏
-          this.toggleFavorite(tab.title, tab.url, tab.favIconUrl);
+            this.toggleFavorite(tab.title, tab.url, tab.favIconUrl);
           } else {
             // 如果未收藏，显示收藏弹窗
             this.showAddFavoriteModal(tab.title, tab.url, tab.favIconUrl);
           }
-        break;
-      case 'edit-tags':
+          break;
+        case 'edit-tags':
           this.openTagModal(this.currentTabId);
-        break;
-      case 'close':
+          break;
+        case 'close':
           this.closeTab(parseInt(this.currentTabId));
-        break;
-    }
-    contextMenu.style.display = 'none';
+          break;
+      }
+      contextMenu.style.display = 'none';
     };
   }
 
@@ -1187,19 +1210,19 @@ class ManagerApp {
   openSearchPalette() {
     const paletteOverlay = document.getElementById('search-palette-overlay');
     const paletteInput = document.getElementById('palette-search-input');
-    
+
     if (!paletteOverlay || !paletteInput) return;
-    
+
     paletteOverlay.style.display = 'flex';
     paletteInput.value = '';
-    
+
     // 根据当前视图设置占位符文本
     if (this.currentView === 'favorites') {
       paletteInput.placeholder = this.i18n.t('search.palette_favorites_placeholder');
     } else {
       paletteInput.placeholder = this.i18n.t('search.palette_placeholder');
     }
-    
+
     paletteInput.focus();
     this.renderPaletteResults();
   }
@@ -1213,16 +1236,16 @@ class ManagerApp {
     if (!paletteResults) return;
 
     paletteResults.innerHTML = '';
-    
+
     if (this.currentView === 'favorites') {
       // 在收藏列表中，搜索收藏夹数据
       const filteredFavorites = this.favorites.filter(fav => {
         return (
-          (fav.title || '').toLowerCase().includes(filter) || 
+          (fav.title || '').toLowerCase().includes(filter) ||
           (fav.url || '').toLowerCase().includes(filter)
         );
       });
-      
+
       filteredFavorites.forEach(favorite => {
         const sanitizedFavIconUrl = this.sanitizeFavIconUrl(favorite.favIconUrl);
         const li = document.createElement('li');
@@ -1235,7 +1258,7 @@ class ManagerApp {
         });
         paletteResults.appendChild(li);
       });
-      
+
       this.paletteSelectedIndex = -1;
       if (filteredFavorites.length > 0) {
         this.paletteSelectedIndex = 0;
@@ -1243,33 +1266,33 @@ class ManagerApp {
       }
     } else {
       // 在当前会话中，搜索打开的标签页
-    const filteredTabs = this.allTabs.filter(t => {
+      const filteredTabs = this.allTabs.filter(t => {
         const displayTitle = this.getTabDisplayTitle(t);
-      return (
-        (displayTitle || '').toLowerCase().includes(filter) || 
-        (t.url || '').toLowerCase().includes(filter)
-      );
-    });
-      
-    filteredTabs.forEach(tab => {
-        const displayTitle = this.getTabDisplayTitle(tab);
-        
-      const sanitizedFavIconUrl = this.sanitizeFavIconUrl(tab.favIconUrl);
-      const li = document.createElement('li');
-      li.className = 'palette-result-item';
-      li.dataset.tabId = tab.id;
-        li.innerHTML = `<img src="${sanitizedFavIconUrl}" class="tab-favicon"><div class="tab-details"><div class="tab-title">${this.escapeHtml(displayTitle)}</div><div class="tab-url">${this.escapeHtml(tab.url)}</div></div>`;
-      li.addEventListener('click', () => {
-        this.navigateToTab(tab.id);
-        this.closeSearchPalette();
+        return (
+          (displayTitle || '').toLowerCase().includes(filter) ||
+          (t.url || '').toLowerCase().includes(filter)
+        );
       });
-      paletteResults.appendChild(li);
-    });
-      
-    this.paletteSelectedIndex = -1;
-    if (filteredTabs.length > 0) {
-      this.paletteSelectedIndex = 0;
-      paletteResults.children[0].classList.add('selected');
+
+      filteredTabs.forEach(tab => {
+        const displayTitle = this.getTabDisplayTitle(tab);
+
+        const sanitizedFavIconUrl = this.sanitizeFavIconUrl(tab.favIconUrl);
+        const li = document.createElement('li');
+        li.className = 'palette-result-item';
+        li.dataset.tabId = tab.id;
+        li.innerHTML = `<img src="${sanitizedFavIconUrl}" class="tab-favicon"><div class="tab-details"><div class="tab-title">${this.escapeHtml(displayTitle)}</div><div class="tab-url">${this.escapeHtml(tab.url)}</div></div>`;
+        li.addEventListener('click', () => {
+          this.navigateToTab(tab.id);
+          this.closeSearchPalette();
+        });
+        paletteResults.appendChild(li);
+      });
+
+      this.paletteSelectedIndex = -1;
+      if (filteredTabs.length > 0) {
+        this.paletteSelectedIndex = 0;
+        paletteResults.children[0].classList.add('selected');
       }
     }
   }
@@ -1298,7 +1321,7 @@ class ManagerApp {
       } else {
         // 在当前会话中，跳转到标签页
         const selectedTabId = parseInt(selectedItem.dataset.tabId);
-      this.navigateToTab(selectedTabId);
+        this.navigateToTab(selectedTabId);
       }
       this.closeSearchPalette();
     }
@@ -1330,13 +1353,13 @@ class ManagerApp {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`[MANAGER] Attempting to load tabs (attempt ${attempt}/${maxRetries})...`);
-        
+
         const windows = await chrome.windows.getAll({ populate: true });
         console.log('[MANAGER] Got windows:', windows.length, 'windows');
-        
+
         this.allTabs = windows.flatMap(win => win.tabs.map(tab => ({ ...tab, windowId: win.id })));
         console.log('[MANAGER] Processed tabs:', this.allTabs.length, 'total tabs');
-        
+
         if (this.allTabs.length === 0) {
           console.warn('[MANAGER] Warning: No tabs found in any window');
           if (attempt < maxRetries) {
@@ -1345,20 +1368,20 @@ class ManagerApp {
             continue;
           }
         }
-        
+
         // 成功获取数据，跳出重试循环
         console.log('[MANAGER] Successfully loaded tab data');
         return;
-        
+
       } catch (error) {
         console.error(`[MANAGER] Failed to get windows/tabs (attempt ${attempt}/${maxRetries}):`, error);
-        
+
         if (attempt === maxRetries) {
           // 最后一次尝试失败，设置空数组并抛出错误
           this.allTabs = [];
           throw new Error(`获取标签页数据失败 (${maxRetries}次尝试后): ${error.message}`);
         }
-        
+
         // 等待后重试
         console.log(`[MANAGER] Retrying in ${delayMs}ms...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -1373,16 +1396,16 @@ class ManagerApp {
       console.log('[MANAGER] Language changed to:', event.detail.language);
       this.onLanguageChanged(event.detail.language);
     });
-    
+
     // 点击其他地方时关闭语言选择器
     document.addEventListener('click', (e) => {
       const languageSelector = document.getElementById('language-selector');
       const languageToggleBtn = document.getElementById('language-toggle-btn');
-      
-      if (languageSelector && 
-          languageSelector.classList.contains('active') && 
-          !languageSelector.contains(e.target) && 
-          !languageToggleBtn.contains(e.target)) {
+
+      if (languageSelector &&
+        languageSelector.classList.contains('active') &&
+        !languageSelector.contains(e.target) &&
+        !languageToggleBtn.contains(e.target)) {
         this.hideLanguageSelector();
       }
     });
@@ -1394,13 +1417,13 @@ class ManagerApp {
   onLanguageChanged(language) {
     // 重新翻译页面
     this.i18n.translatePage();
-    
+
     // 重新渲染动态内容
     this.render();
-    
+
     // 更新同步状态信息
     this.updateSyncStatusInfo();
-    
+
     // 更新搜索框占位符
     this.updateSearchPlaceholder();
   }
@@ -1410,7 +1433,7 @@ class ManagerApp {
    */
   toggleLanguageSelector() {
     const languageSelector = document.getElementById('language-selector');
-    
+
     if (!languageSelector) {
       this.createLanguageSelector();
     } else {
@@ -1429,36 +1452,36 @@ class ManagerApp {
     const languageSelector = document.createElement('div');
     languageSelector.id = 'language-selector';
     languageSelector.className = 'language-selector';
-    
+
     const supportedLanguages = this.i18n.getSupportedLanguages();
     const currentLanguage = this.i18n.getCurrentLanguage();
-    
+
     supportedLanguages.forEach(lang => {
       const option = document.createElement('button');
       option.className = 'language-option';
       option.dataset.language = lang;
-      
+
       if (lang === currentLanguage) {
         option.classList.add('active');
       }
-      
+
       const flag = lang === 'zh-CN' ? '🇨🇳' : '🇺🇸';
       const name = this.i18n.t(`language.${lang}`);
-      
+
       option.innerHTML = `
         <span class="language-flag">${flag}</span>
         <span class="language-name">${name}</span>
       `;
-      
+
       option.addEventListener('click', () => {
         this.switchLanguage(lang);
       });
-      
+
       languageSelector.appendChild(option);
     });
-    
+
     document.body.appendChild(languageSelector);
-    
+
     // 显示选择器
     setTimeout(() => {
       languageSelector.classList.add('active');
@@ -1491,10 +1514,10 @@ class ManagerApp {
   async switchLanguage(language) {
     try {
       const changed = await this.i18n.switchLanguage(language);
-      
+
       if (changed) {
         console.log('[MANAGER] Language switched to:', language);
-        
+
         // 更新语言选择器中的激活状态
         const languageSelector = document.getElementById('language-selector');
         if (languageSelector) {
@@ -1503,10 +1526,10 @@ class ManagerApp {
             option.classList.toggle('active', option.dataset.language === language);
           });
         }
-        
+
         // 隐藏选择器
         this.hideLanguageSelector();
-        
+
         // 显示切换成功通知
         this.showSyncNotification('success', this.i18n.t(`language.${language}`) + ' ✓');
       }
@@ -1522,7 +1545,7 @@ class ManagerApp {
   updateSearchPlaceholder() {
     const searchInput = document.getElementById('search-input');
     const paletteInput = document.getElementById('palette-search-input');
-    
+
     if (searchInput) {
       if (this.currentView === 'favorites') {
         searchInput.placeholder = this.i18n.t('search.favorites_placeholder');
@@ -1530,7 +1553,7 @@ class ManagerApp {
         searchInput.placeholder = this.i18n.t('search.filter_placeholder');
       }
     }
-    
+
     if (paletteInput) {
       if (this.currentView === 'favorites') {
         paletteInput.placeholder = this.i18n.t('search.palette_favorites_placeholder');
@@ -1540,25 +1563,72 @@ class ManagerApp {
     }
   }
 
+
+
+  // --- CouchDB Helper Functions ---
+  /**
+   * 保存用户设置到CouchDB
+   */
+  async saveUserSettingsToCouchDB(settings) {
+    try {
+      // 获取当前语言设置
+      const currentLanguage = this.i18n?.getCurrentLanguage() || 'zh-CN';
+
+      const userSettings = {
+        lastActiveSection: settings.lastActiveSection || this.currentView,
+        language: settings.language || currentLanguage
+      };
+
+      await this.couchDB.saveUserSettings(userSettings);
+      console.log('[MANAGER] User settings saved to CouchDB');
+    } catch (error) {
+      console.error('[MANAGER] Failed to save user settings to CouchDB:', error);
+      // 不阻塞用户操作，只记录错误
+    }
+  }
+
+  /**
+   * 重新加载收藏夹数据
+   */
+  async reloadFavorites() {
+    try {
+      this.favorites = await this.couchDB.getFavorites();
+      console.log('[MANAGER] Reloaded favorites:', this.favorites.length, 'items');
+
+      // 同步到chrome.storage.sync供Alt+M搜索使用
+      try {
+        await chrome.storage.sync.set({ favorites: this.favorites });
+        console.log('[MANAGER] Synced reloaded favorites to chrome.storage.sync');
+      } catch (syncError) {
+        console.log('[MANAGER] Failed to sync reloaded favorites to storage:', syncError);
+      }
+
+      this.render(); // 重新渲染界面
+    } catch (error) {
+      console.error('[MANAGER] Failed to reload favorites:', error);
+      this.showSyncNotification('error', '重新加载收藏夹失败');
+    }
+  }
+
   // --- Helper Functions ---
   async checkPermissions() {
     try {
       console.log('[MANAGER] Checking permissions...');
-      
+
       // 检查tabs权限
       if (!chrome.tabs) {
         throw new Error('缺少标签页访问权限');
       }
-      
+
       // 检查windows权限
       if (!chrome.windows) {
         throw new Error('缺少窗口访问权限');
       }
-      
+
       // 尝试获取当前活动标签页来验证权限
       const currentTab = await chrome.tabs.query({ active: true, currentWindow: true });
       console.log('[MANAGER] Permissions check passed. Current tab:', currentTab.length > 0 ? currentTab[0].id : 'none');
-      
+
       return true;
     } catch (error) {
       console.error('[MANAGER] Permission check failed:', error);
@@ -1589,7 +1659,7 @@ class ManagerApp {
     const now = new Date();
     const diffMs = now - date;
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) return '今天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
     if (diffDays === 1) return '昨天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
     if (diffDays < 7) return `${diffDays}天前`;
@@ -1602,7 +1672,7 @@ class ManagerApp {
   showLoading(message = '处理中...') {
     const loadingOverlay = document.getElementById('loading-overlay');
     const loadingText = document.getElementById('loading-text');
-    
+
     if (loadingOverlay && loadingText) {
       loadingText.textContent = message;
       loadingOverlay.classList.add('active');
@@ -1625,7 +1695,7 @@ class ManagerApp {
   updateLoadingText(message) {
     const loadingText = document.getElementById('loading-text');
     const loadingOverlay = document.getElementById('loading-overlay');
-    
+
     // 只有在loading显示时才更新文案
     if (loadingText && loadingOverlay && loadingOverlay.classList.contains('active')) {
       loadingText.textContent = message;
@@ -1682,7 +1752,7 @@ class ManagerApp {
         <span class="notification-message">${message}</span>
       </div>
     `;
-    
+
     // 添加样式
     notification.style.cssText = `
       position: fixed;
@@ -1693,7 +1763,7 @@ class ManagerApp {
       padding: 12px 16px;
       border-radius: 4px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      z-index: 10000;
+      z-index: 1000003;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -1703,15 +1773,15 @@ class ManagerApp {
       transform: translateX(100%);
       transition: all 0.3s ease;
     `;
-    
+
     document.body.appendChild(notification);
-    
+
     // 显示动画
     setTimeout(() => {
       notification.style.opacity = '1';
       notification.style.transform = 'translateX(0)';
     }, 100);
-    
+
     // 自动隐藏
     setTimeout(() => {
       notification.style.opacity = '0';
@@ -1737,10 +1807,10 @@ class ManagerApp {
   async showSyncStatusModal() {
     const modal = document.getElementById('sync-status-modal');
     if (!modal) return;
-    
+
     // 更新状态信息
     await this.updateSyncStatusInfo();
-    
+
     modal.style.display = 'flex';
   }
 
@@ -1755,13 +1825,26 @@ class ManagerApp {
   }
 
   /**
+   * 获取CouchDB状态
+   */
+  getCouchDBStatus() {
+    return {
+      isConnected: this.couchDB.isConnected,
+      isOnline: this.couchDB.isOnline,
+      config: this.couchDB.config,
+      pendingOperations: this.couchDB.pendingOperations.length,
+      lastSyncTime: this.couchDB.lastSyncTime
+    };
+  }
+
+  /**
    * 更新同步状态信息
    */
   async updateSyncStatusInfo() {
     try {
       // 获取CouchDB状态
       const status = this.getCouchDBStatus();
-      
+
       // 更新侧边栏同步状态按钮的状态指示器
       const syncStatusBtn = document.getElementById('sync-status-btn');
       if (syncStatusBtn) {
@@ -1772,7 +1855,7 @@ class ManagerApp {
           syncStatusBtn.classList.add('disconnected');
         }
       }
-      
+
       // 更新连接状态
       const connectionStatus = document.getElementById('connection-status');
       if (connectionStatus) {
@@ -1787,13 +1870,13 @@ class ManagerApp {
           connectionStatus.className = 'status-indicator offline';
         }
       }
-      
+
       // 更新数据库地址
       const databaseUrl = document.getElementById('database-url');
       if (databaseUrl) {
         databaseUrl.textContent = status.config.url;
       }
-      
+
       // 获取并更新用户ID
       const userId = await this.couchDB.getUserId();
       const userIdInput = document.getElementById('user-id-input');
@@ -1801,19 +1884,19 @@ class ManagerApp {
         userIdInput.value = userId;
         userIdInput.placeholder = userId;
       }
-      
+
       // 更新待同步操作数
       const pendingOperations = document.getElementById('pending-operations');
       if (pendingOperations) {
         pendingOperations.textContent = status.pendingOperations;
       }
-      
+
       // 更新本地收藏数
       const localFavoritesCount = document.getElementById('local-favorites-count');
       if (localFavoritesCount) {
         localFavoritesCount.textContent = this.favorites.length;
       }
-      
+
       // 更新最后同步时间
       const lastSyncTime = document.getElementById('last-sync-time');
       if (lastSyncTime) {
@@ -1824,39 +1907,47 @@ class ManagerApp {
           lastSyncTime.textContent = '未同步';
         }
       }
-      
+
     } catch (error) {
       console.error('[MANAGER] Failed to update sync status info:', error);
     }
   }
 
   /**
-   * 强制同步收藏夹
+   * 强制刷新数据
    */
   async forceSyncFavorites() {
     try {
       this.setButtonLoading('force-sync-btn', true);
-      
-      // 执行同步
-      console.log('[MANAGER] Starting force sync with', this.favorites.length, 'local favorites');
-      const syncResult = await this.couchDB.syncFavorites(this.favorites);
-      this.favorites = syncResult;
-      console.log('[MANAGER] Force sync completed with', this.favorites.length, 'favorites');
-      
-      // 更新本地存储
-      await chrome.storage.sync.set({ favorites: this.favorites });
-      
-      // 重新渲染界面
-      this.render();
-      
+
+      // 重新加载收藏夹数据
+      console.log('[MANAGER] Force refreshing data from CouchDB...');
+      await this.reloadFavorites();
+
+      // 重新加载用户设置
+      const userSettings = await this.couchDB.getUserSettings();
+      if (userSettings) {
+        this.currentView = userSettings.lastActiveSection || 'current';
+
+        // 切换到正确的视图
+        document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
+          item.classList.toggle('active', item.dataset.view === this.currentView);
+        });
+
+        document.getElementById('current-session').style.display = this.currentView === 'current' ? 'block' : 'none';
+        document.getElementById('favorites-list').style.display = this.currentView === 'favorites' ? 'block' : 'none';
+      }
+
+      console.log('[MANAGER] Force refresh completed');
+
       // 更新状态信息
       await this.updateSyncStatusInfo();
-      
-      this.showSyncNotification('success', '收藏夹同步成功');
-      
+
+      this.showSyncNotification('success', '数据刷新成功');
+
     } catch (error) {
-      console.error('[MANAGER] Force sync failed:', error);
-      this.showSyncNotification('error', '同步失败: ' + error.message);
+      console.error('[MANAGER] Force refresh failed:', error);
+      this.showSyncNotification('error', '刷新失败: ' + error.message);
     } finally {
       this.setButtonLoading('force-sync-btn', false);
     }
@@ -1872,23 +1963,23 @@ class ManagerApp {
     const saveBtn = document.getElementById('save-user-id-btn');
     const cancelBtn = document.getElementById('cancel-edit-user-id-btn');
     const hint = document.querySelector('.user-id-hint');
-    
+
     if (!userIdInput || !editBtn || !saveBtn || !cancelBtn) return;
-    
+
     // 保存原始值
     this.originalUserId = userIdInput.value;
-    
+
     // 切换到编辑模式
     userIdInput.removeAttribute('readonly');
     userIdInput.focus();
     userIdInput.select();
-    
+
     editBtn.style.display = 'none';
     if (generateBtn) generateBtn.style.display = 'inline-block';
     saveBtn.style.display = 'inline-block';
     cancelBtn.style.display = 'inline-block';
     if (hint) hint.style.display = 'block';
-    
+
     // 添加键盘事件监听
     userIdInput.addEventListener('keydown', this.handleUserIdKeydown.bind(this));
   }
@@ -1912,31 +2003,27 @@ class ManagerApp {
   async saveUserId() {
     const userIdInput = document.getElementById('user-id-input');
     if (!userIdInput) return;
-    
+
     const newUserId = userIdInput.value.trim();
-    
+
     if (!newUserId) {
       this.showSyncNotification('error', '用户ID不能为空');
       return;
     }
-    
+
     try {
       this.showLoading('正在保存用户ID...');
-      
+
       // 验证并设置新的用户ID
       const changed = await this.couchDB.setUserId(newUserId);
-      
+
       if (changed) {
         // 用户ID已更改，需要重新同步数据
         this.showSyncNotification('success', '用户ID已更新，正在重新同步数据...');
-        
-        // 重新同步收藏夹数据
+
+        // 重新加载数据
         try {
-          const syncResult = await chrome.storage.sync.get(['favorites']);
-          const localFavorites = syncResult.favorites || [];
-          this.favorites = await this.couchDB.syncFavorites(localFavorites);
-          await chrome.storage.sync.set({ favorites: this.favorites });
-          this.render();
+          await this.reloadFavorites();
           this.showSyncNotification('success', '数据同步完成');
         } catch (error) {
           console.error('[MANAGER] Failed to sync after user ID change:', error);
@@ -1945,17 +2032,17 @@ class ManagerApp {
       } else {
         this.showSyncNotification('info', '用户ID未更改');
       }
-      
+
       // 退出编辑模式
       this.exitEditUserId();
-      
+
       // 更新同步状态信息
       await this.updateSyncStatusInfo();
-      
+
     } catch (error) {
       console.error('[MANAGER] Failed to save user ID:', error);
       this.showSyncNotification('error', '保存失败: ' + error.message);
-      
+
       // 恢复原始值
       userIdInput.value = this.originalUserId;
     } finally {
@@ -1969,10 +2056,10 @@ class ManagerApp {
   cancelEditUserId() {
     const userIdInput = document.getElementById('user-id-input');
     if (!userIdInput) return;
-    
+
     // 恢复原始值
     userIdInput.value = this.originalUserId;
-    
+
     // 退出编辑模式
     this.exitEditUserId();
   }
@@ -1986,7 +2073,7 @@ class ManagerApp {
   generateNewUserId() {
     const userIdInput = document.getElementById('user-id-input');
     if (!userIdInput) return;
-    
+
     // 生成新的用户ID
     const newUserId = this.couchDB.generateUserId();
     userIdInput.value = newUserId;
@@ -2001,18 +2088,18 @@ class ManagerApp {
     const saveBtn = document.getElementById('save-user-id-btn');
     const cancelBtn = document.getElementById('cancel-edit-user-id-btn');
     const hint = document.querySelector('.user-id-hint');
-    
+
     if (!userIdInput || !editBtn || !saveBtn || !cancelBtn) return;
-    
+
     // 切换回只读模式
     userIdInput.setAttribute('readonly', 'readonly');
-    
+
     editBtn.style.display = 'inline-block';
     if (generateBtn) generateBtn.style.display = 'none';
     saveBtn.style.display = 'none';
     cancelBtn.style.display = 'none';
     if (hint) hint.style.display = 'none';
-    
+
     // 移除键盘事件监听
     userIdInput.removeEventListener('keydown', this.handleUserIdKeydown.bind(this));
   }
@@ -2023,29 +2110,29 @@ class ManagerApp {
   async testCouchDBConnection() {
     try {
       this.setButtonLoading('test-connection-btn', true);
-      
+
       // 显示检查中状态
       const connectionStatus = document.getElementById('connection-status');
       if (connectionStatus) {
         connectionStatus.textContent = '检查中...';
         connectionStatus.className = 'status-indicator checking';
       }
-      
+
       // 测试连接
       console.log('[MANAGER] Starting connection test...');
       const connected = await this.couchDB.checkConnection();
-      
+
       if (connected) {
         console.log('[MANAGER] Connection test successful');
-        this.showSyncNotification('success', 'CouchDB连接测试成功');
+        this.showSyncNotification('success', '连接测试成功');
       } else {
         console.log('[MANAGER] Connection test failed');
-        this.showSyncNotification('error', 'CouchDB连接测试失败');
+        this.showSyncNotification('error', '连接测试失败');
       }
-      
+
       // 更新状态信息
       await this.updateSyncStatusInfo();
-      
+
     } catch (error) {
       console.error('[MANAGER] Connection test failed:', error);
       this.showSyncNotification('error', '连接测试失败: ' + error.message);
@@ -2060,25 +2147,25 @@ class ManagerApp {
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     console.log('[MANAGER] DOM loaded, initializing ManagerApp...');
-    
+
     // 检查必要的元素是否存在
     const requiredElements = ['window-list', 'favorite-list', 'current-session', 'favorites-list'];
     const missingElements = requiredElements.filter(id => !document.getElementById(id));
-    
+
     if (missingElements.length > 0) {
       console.error('[MANAGER] Missing required DOM elements:', missingElements);
       throw new Error(`页面结构不完整，缺少元素: ${missingElements.join(', ')}`);
     }
-    
+
     const app = new ManagerApp();
     // 不需要等待init，因为它已经在构造函数中被调用
-    
+
     // 将app实例挂载到window对象，方便调试
     window.tabulaApp = app;
-    
+
   } catch (error) {
     console.error('[MANAGER] Failed to initialize application:', error);
-    
+
     // 显示错误页面
     document.body.innerHTML = `
       <div style="

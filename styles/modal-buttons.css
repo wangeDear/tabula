@@ -1,0 +1,61 @@
+/* 简洁扁平化按钮样式 */
+
+/* 模态框按钮基础样式 */
+.modal-footer .btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 90px;
+    border: none;
+}
+
+/* 确认按钮 - 蓝色 */
+.modal-footer .btn-primary {
+    background: #3B82F6;
+    color: white;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+.modal-footer .btn-primary:hover {
+    background: #2563EB;
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.modal-footer .btn-primary:active {
+    background: #1D4ED8;
+    box-shadow: 0 1px 2px rgba(59, 130, 246, 0.2);
+}
+
+/* 取消按钮 - 灰色 */
+.modal-footer .btn-secondary {
+    background: #475569;
+    color: #F1F5F9;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.modal-footer .btn-secondary:hover {
+    background: #64748B;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.modal-footer .btn-secondary:active {
+    background: #334155;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* 输入框焦点优化 */
+.form-input:focus {
+    outline: none;
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-input[readonly] {
+    background-color: rgba(51, 65, 85, 0.3);
+    color: #94A3B8;
+    cursor: not-allowed;
+    opacity: 0.7;
+}

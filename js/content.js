@@ -36,7 +36,7 @@ class TabulaSearchOverlay {
 
   async initI18n() {
     // 获取当前语言设置和主题设置
-    const result = await chrome.storage.sync.get(['language']);
+    const result = await chrome.storage.local.get(['language']);
     const themeResult = await chrome.storage.local.get(['isLightMode']);
     
     const currentLanguage = result.language || 'zh-CN';
@@ -999,7 +999,8 @@ class TabulaSearchOverlay {
              searchType: 'favorite'
            }));
          
-         this.searchResults = [...tabResults, ...favoriteResults];
+         // 收藏夹优先显示，然后是当前标签页
+         this.searchResults = [...favoriteResults, ...tabResults];
       } else {
         // 有搜索查询时，进行搜索过滤
         const searchTerm = query.toLowerCase();
@@ -1037,8 +1038,8 @@ class TabulaSearchOverlay {
           searchType: 'favorite'
         }));
         
-        // 合并结果，当前会话优先，不限制数量
-        this.searchResults = [...tabResults, ...favoriteResults];
+        // 合并结果，收藏夹优先，然后是当前会话
+        this.searchResults = [...favoriteResults, ...tabResults];
       }
       
       // 确保选中第一条记录

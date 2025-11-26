@@ -272,6 +272,18 @@ class ManagerApp {
         return;
       }
 
+      const exportBtn = closest('#export-btn');
+      if (exportBtn) {
+        this.exportFavorites();
+        return;
+      }
+
+      const importBtn = closest('#import-btn');
+      if (importBtn) {
+        document.getElementById('import-file-input').click();
+        return;
+      }
+
 
 
       // 用户ID编辑相关按钮
@@ -359,6 +371,10 @@ class ManagerApp {
     // Palette search input events
     document.getElementById('palette-search-input')?.addEventListener('input', (e) => this.renderPaletteResults(e.target.value.toLowerCase()));
     document.getElementById('palette-search-input')?.addEventListener('keydown', (e) => this.handlePaletteKeydown(e));
+
+    document.getElementById('import-file-input')?.addEventListener('change', (e) => {
+        this.importFavorites(e.target.files[0]);
+    });
   }
 
   setupMessageListener() {
@@ -1995,6 +2011,122 @@ class ManagerApp {
       e.preventDefault();
       this.cancelEditUserId();
     }
+  }
+
+  /**
+   * 导出收藏夹数据到JSON文件
+   */
+  async exportFavorites() {
+    this.showLoading(this.i18n.t('sync.exporting_data'));
+
+    try {
+      const favorites = await this.couchDB.getFavorites();
+
+      if (favorites.length === 0) {
+        this.showSyncNotification('info', this.i18n.t('notification.no_favorites_to_export'));
+        return;
+      }
+
+      // 只导出核心数据，移除CouchDB特定的字段
+      const exportData = favorites.map(fav => ({
+        title: fav.title,
+        url: fav.url,
+        favIconUrl: fav.favIconUrl,
+        addedAt: fav.addedAt,
+        updatedAt: fav.updatedAt
+      }));
+
+      const jsonString = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      const date = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `tabula-favorites-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      this.showSyncNotification('success', this.i18n.t('notification.export_success', { count: favorites.length }));
+    } catch (error) {
+      console.error('[MANAGER] Error exporting favorites:', error);
+      this.showSyncNotification('error', this.i18n.t('notification.export_failed'));
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  /**
+   * 从JSON文件导入收藏夹数据
+   */
+  async importFavorites(file) {
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const content = e.target.result;
+        const importedData = JSON.parse(content);
+
+        if (!Array.isArray(importedData)) {
+          throw new Error('Invalid file format. Expected an array of favorites.');
+        }
+
+        // 简单验证数据
+        const validFavorites = importedData.filter(fav => fav.title && fav.url);
+
+        if (validFavorites.length === 0) {
+          this.showSyncNotification('info', this.i18n.t('notification.no_valid_favorites_in_file'));
+          return;
+        }
+
+        // 提醒用户可能产生重复
+        const confirmed = confirm(this.i18n.t('notification.import_confirm', { count: validFavorites.length }));
+
+        if (!confirmed) {
+          return;
+        }
+
+        this.showLoading(this.i18n.t('sync.importing_data'));
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const favorite of validFavorites) {
+          try {
+            // 为防止完全重复，可以先检查URL是否存在
+            const existing = await this.couchDB.findFavoriteByUrl(favorite.url);
+            if (existing) {
+              console.log(`[MANAGER] Favorite already exists, skipping: ${favorite.url}`);
+              continue; // 跳过已存在的
+            }
+            await this.couchDB.addFavorite(favorite);
+            successCount++;
+          } catch (error) {
+            console.error(`[MANAGER] Failed to import favorite: ${favorite.title}`, error);
+            errorCount++;
+          }
+        }
+
+        await this.reloadFavorites();
+
+        this.showSyncNotification('success', this.i18n.t('notification.import_success', { successCount, errorCount }));
+
+      } catch (error) {
+        console.error('[MANAGER] Error importing favorites:', error);
+        this.showSyncNotification('error', this.i18n.t('notification.import_failed') + ': ' + error.message);
+      } finally {
+        this.hideLoading();
+        // Reset file input so the same file can be selected again
+        document.getElementById('import-file-input').value = '';
+      }
+    };
+
+    reader.readAsText(file);
   }
 
   /**

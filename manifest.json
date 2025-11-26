@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tabula",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Tabula: 简洁高效的标签页管理器",
   "permissions": [
     "tabs",
@@ -11,7 +11,7 @@
     "contextMenus"
   ],
   "host_permissions": [
-    "http://172.245.53.139:5984/*"
+    "http://chromeapp.tabulapp.win/*"
   ],
   "action": {
     "default_title": "Tabula",

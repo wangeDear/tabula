@@ -14,6 +14,7 @@
   "search.press_enter": "按回车键跳转",
   "search.press_esc": "按ESC键关闭",
   "search.current_tab": "当前",
+  "search.current_active_tab": "当前 (活动)",
   "search.favorite": "收藏",
   "search.rename_title": "重命名标题",
   "search.add_favorite": "添加到收藏夹",

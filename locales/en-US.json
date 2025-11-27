@@ -14,6 +14,7 @@
   "search.press_enter": "Press Enter to jump",
   "search.press_esc": "Press ESC to close",
   "search.current_tab": "Current",
+  "search.current_active_tab": "Current (Active)",
   "search.favorite": "Favorite",
   "search.rename_title": "Rename Title",
   "search.add_favorite": "Add to Favorites",

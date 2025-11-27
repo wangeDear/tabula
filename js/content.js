@@ -604,6 +604,11 @@ class TabulaSearchOverlay {
           background: rgba(214, 158, 46, 0.8) !important;
           color: white !important;
         }
+
+        #tabula-search-overlay .type-indicator.current-active-tab {
+          background: rgba(76, 175, 80, 0.8) !important; /* Green for active tab */
+          color: white !important;
+        }
         
         #tabula-search-overlay .tabula-result-item.selected .type-indicator {
           background: #2B6CB0 !important;
@@ -1042,8 +1047,14 @@ class TabulaSearchOverlay {
         this.searchResults = [...favoriteResults, ...tabResults];
       }
       
-      // 确保选中第一条记录
+      // 移动活动标签页到顶部并设为选中
+      const activeTabIndex = this.searchResults.findIndex(item => item.type === 'tab' && item.active);
+      if (activeTabIndex > 0) {
+        const [activeTabItem] = this.searchResults.splice(activeTabIndex, 1);
+        this.searchResults.unshift(activeTabItem);
+      }
       this.selectedIndex = 0;
+
       this.renderResults();
       // 在渲染完成后更新选择状态
       if (this.searchResults.length > 0) {
@@ -1210,19 +1221,18 @@ class TabulaSearchOverlay {
     const resultItem = document.createElement('div');
     resultItem.className = 'tabula-result-item';
     resultItem.dataset.index = index;
-    
-    // 添加选中状态类 - 默认选中第一条记录(index === 0)
-    if (index === 0) {
-      resultItem.classList.add('selected');
-      this.selectedIndex = 0; // 确保selectedIndex正确
-    }
 
     // 类型标识
     const typeIndicator = document.createElement('div');
     typeIndicator.className = 'type-indicator';
     if (item.type === 'tab') {
       typeIndicator.classList.add(this.isLightMode ? 'tab-type-light' : 'tab-type-dark');
-      typeIndicator.textContent = this.t('search.current_tab') || '当前';
+      if (item.active) {
+        typeIndicator.textContent = this.t('search.current_active_tab');
+        typeIndicator.classList.add('current-active-tab');
+      } else {
+        typeIndicator.textContent = this.t('search.current_tab') || '当前';
+      }
     } else {
       typeIndicator.classList.add(this.isLightMode ? 'favorite-type-light' : 'favorite-type-dark');
       typeIndicator.textContent = this.t('search.favorite') || '收藏';
